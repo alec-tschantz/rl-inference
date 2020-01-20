@@ -157,6 +157,9 @@ class EnsembleModel(nn.Module):
         loss = loss.mean(-1).mean(-1).sum()
         return loss
 
+    def set_normalizer(self, normalizer):
+        self.normalizer = normalizer
+
 
 class RewardModel(nn.Module):
     def __init__(self, state_size, hidden_size, act_fn=RELU):

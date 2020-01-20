@@ -1,8 +1,13 @@
-# scp -r pmbrl at449@allocortex.inf.susx.ac.uk:/its/home/at449/ 
+""" scp -r pmbrl at449@allocortex.inf.susx.ac.uk:/its/home/at449/ """
+# pylint: disable=not-callable
+# pylint: disable=no-member
 
+import gym
+import roboschool
 import torch
 import numpy as np
 import argparse
+import time
 
 from pmbrl.env import GymEnv, NoisyEnv
 from pmbrl.normalizer import TransitionNormalizer
@@ -31,7 +36,7 @@ def main(args):
         args.ensemble_size,
         normalizer,
         buffer_size=args.buffer_size,
-        device=args.device,
+        device=DEVICE,
     )
 
     ensemble = EnsembleModel(
@@ -40,9 +45,9 @@ def main(args):
         args.hidden_size,
         args.ensemble_size,
         normalizer,
-        device=args.device,
-    ).to(args.device)
-    reward_model = RewardModel(state_size, args.hidden_size).to(args.device)
+        device=DEVICE,
+    ).to(DEVICE)
+    reward_model = RewardModel(state_size, args.hidden_size).to(DEVICE)
     params = list(ensemble.parameters()) + list(reward_model.parameters())
     optim = torch.optim.Adam(params, lr=args.learning_rate, eps=args.epsilon)
 
@@ -57,17 +62,20 @@ def main(args):
         use_exploration=args.use_exploration,
         use_reward=args.use_reward,
         expl_scale=args.expl_scale,
-        device=args.device,
-    ).to(args.device)
+        device=DEVICE,
+    ).to(DEVICE)
     agent = Agent(env, planner)
 
     if tools.logdir_exists(args.logdir):
         tools.log("Loading existing _logdir_ at {}".format(args.logdir))
-        buffer = tools.load_buffer(args.logdir)
+        normalizer = tools.load_normalizer(args.logdir)
+        buffer = tools.load_buffer(args.logdir, buffer)
+        buffer.set_normalizer(normalizer)
         metrics = tools.load_metrics(args.logdir)
         model_dict = tools.load_model_dict(args.logdir, metrics["last_save"])
         ensemble.load_state_dict(model_dict["ensemble"])
-        reward_model.load_state_dict(model_dict["reward_model"])
+        ensemble.set_normalizer(normalizer)
+        reward_model.load_state_dict(model_dict["reward"])
         optim.load_state_dict(model_dict["optim"])
     else:
         tools.init_dirs(args.logdir)
@@ -78,7 +86,10 @@ def main(args):
 
     for episode in range(metrics["episode"], args.n_episodes):
         tools.log("\n === Episode {} ===".format(episode))
+        start_time_episode = time.process_time()
+        start_time_training = time.process_time()
 
+        tools.log("Training on {} data points".format(buffer.total_steps))
         for epoch in range(args.n_train_epochs):
             e_losses = []
             r_losses = []
@@ -100,38 +111,57 @@ def main(args):
 
             if epoch % args.log_every == 0 and epoch > 0:
                 message = "> Epoch {} [ ensemble {:.2f} | rew {:.2f}]"
-                tools.log(message.format(epoch, sum(e_losses) / epoch, sum(r_losses) / epoch))
-
+                tools.log(
+                    message.format(epoch, sum(e_losses) / epoch, sum(r_losses) / epoch)
+                )
         metrics["ensemble_loss"].append(sum(e_losses))
         metrics["reward_loss"].append(sum(r_losses))
+        message = "Losses: [ensemble {} | reward {}]"
+        tools.log(message.format(sum(e_losses), sum(r_losses)))
+        end_time_training = time.process_time() - start_time_training
+        tools.log("Total training time: {:.2f}".format(end_time_training))
 
+        start_time_expl = time.process_time()
         expl_reward, expl_steps, buffer = agent.run_episode(
             buffer=buffer, action_noise=args.action_noise
         )
         metrics["train_rewards"].append(expl_reward)
         metrics["train_steps"].append(expl_steps)
+        message = "Exploration: [reward {:.2f} | steps {:.2f} ]"
+        tools.log(message.format(expl_reward, expl_steps))
+        end_time_expl = time.process_time() - start_time_expl
+        tools.log("Total exploration time: {:.2f}".format(end_time_expl))
 
+        start_time = time.process_time()
         reward, steps, buffer = agent.run_episode(buffer=buffer)
         metrics["test_rewards"].append(reward)
         metrics["test_steps"].append(steps)
+        message = "Exploitation: [reward {:.2f} | steps {:.2f} ]"
+        tools.log(message.format(reward, steps))
+        end_time = time.process_time() - start_time
+        tools.log("Total exploitation time: {:.2f}".format(end_time))
 
-        message = "Reward [expl rew {:.2f} | rew {:.2f} | expl_steps {:2f} | steps {:2f} | total steps {:.2f}]"
-        print(
-            message.format(expl_reward, reward, expl_steps, steps, buffer.total_steps)
-        )
+        end_time_episode = time.process_time() - start_time_episode
+        tools.log("Total episode time: {:.2f}".format(end_time_episode))
         metrics["episode"] += 1
         metrics["total_steps"].append(buffer.total_steps)
+        metrics["episode_time"].append(end_time_episode)
 
         if episode % args.save_every == 0:
             metrics["episode"] += 1
             metrics["last_save"] = episode
-            tools.save_model(args.logdir, ensemble, reward_model, optim)
+            tools.save_model(args.logdir, ensemble, reward_model, optim, episode)
+            tools.save_normalizer(args.logdir, normalizer)
             tools.save_buffer(args.logdir, buffer)
             tools.save_metrics(args.logdir, metrics)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    """
+    parser.add_argument("--logdir", type=str, default="log-cheetah")
     parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")
     parser.add_argument("--max_episode_len", type=int, default=5000)
     parser.add_argument("--action_repeat", type=int, default=2)
@@ -156,6 +186,32 @@ if __name__ == "__main__":
     parser.add_argument("--use_reward", type=bool, default=True)
     parser.add_argument("--use_exploration", type=bool, default=False)
     parser.add_argument("--expl_scale", type=int, default=1)
-    
+    """
+    parser.add_argument("--logdir", type=str, default="log-cheetah")
+    parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")
+    parser.add_argument("--max_episode_len", type=int, default=10)
+    parser.add_argument("--action_repeat", type=int, default=2)
+    parser.add_argument("--env_std", type=float, default=0.02)
+    parser.add_argument("--action_noise", type=float, default=0.3)
+    parser.add_argument("--ensemble_size", type=int, default=5)
+    parser.add_argument("--buffer_size", type=int, default=10 ** 6)
+    parser.add_argument("--hidden_size", type=int, default=10)
+    parser.add_argument("--learning_rate", type=float, default=1e-3)
+    parser.add_argument("--epsilon", type=float, default=1e-4)
+    parser.add_argument("--plan_horizon", type=int, default=2)
+    parser.add_argument("--n_candidates", type=int, default=20)
+    parser.add_argument("--optimisation_iters", type=int, default=2)
+    parser.add_argument("--top_candidates", type=int, default=10)
+    parser.add_argument("--n_seed_episodes", type=int, default=5)
+    parser.add_argument("--n_train_epochs", type=int, default=10)
+    parser.add_argument("--n_episodes", type=int, default=50)
+    parser.add_argument("--batch_size", type=int, default=50)
+    parser.add_argument("--grad_clip_norm", type=int, default=1000)
+    parser.add_argument("--log_every", type=int, default=20)
+    parser.add_argument("--save_every", type=int, default=5)
+    parser.add_argument("--use_reward", type=bool, default=True)
+    parser.add_argument("--use_exploration", type=bool, default=False)
+    parser.add_argument("--expl_scale", type=int, default=1)
+
     args = parser.parse_args()
     main(args)

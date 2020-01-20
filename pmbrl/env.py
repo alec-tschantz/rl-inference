@@ -54,10 +54,6 @@ class GymEnv(object):
     def action_dims(self):
         return self._env.action_space.shape
 
-    @property
-    def steps(self):
-        return self.t
-
 
 class Wrapper(GymEnv):
     def __init__(self, env):

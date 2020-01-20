@@ -27,6 +27,7 @@ class Agent(object):
 
     def run_episode(self, buffer=None, action_noise=0.0):
         total_reward = 0
+        total_steps = 0
         done = False
 
         with torch.no_grad():
@@ -42,6 +43,7 @@ class Agent(object):
 
                 next_state, reward, done = self.env.step(action)
                 total_reward += reward
+                total_steps += 1
 
                 if buffer is not None:
                     buffer.add(state, action, reward, next_state)
@@ -50,7 +52,6 @@ class Agent(object):
                     break
 
         self.env.close()
-        total_steps = self.env.steps
 
         if buffer is not None:
             return total_reward, total_steps, buffer

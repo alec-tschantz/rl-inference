@@ -30,7 +30,7 @@ class Buffer(object):
         self._total_steps = 0
 
     def add(self, state, action, reward, next_state):
-        idx = self.n_elements % self.buffer_size
+        idx = self._total_steps % self.buffer_size
 
         state_delta = next_state - state
 
@@ -80,6 +80,27 @@ class Buffer(object):
             )
 
             yield states, actions, rewards, state_deltas
+
+    def save_data(self, filepath):
+        np.savez_compressed(
+            filepath,
+            states=self.states,
+            actions=self.actions,
+            rewards=self.rewards,
+            state_deltas=self.state_deltas,
+            total_steps=self._total_steps,
+        )
+
+    def load_data(self, filepath):
+        data = np.load(filepath)
+        self.states = data["states"]
+        self.actions = data["actions"]
+        self.rewards = data["rewards"]
+        self.state_deltas = data["state_deltas"]
+        self._total_steps = int(data["total_steps"])
+
+    def set_normalizer(self, normalizer):
+        self.normalizer = normalizer
 
     def __len__(self):
         return min(self._total_steps, self.buffer_size)

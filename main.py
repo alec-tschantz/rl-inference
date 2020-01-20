@@ -1,4 +1,5 @@
 """ scp -r pmbrl at449@allocortex.inf.susx.ac.uk:/its/home/at449/ """
+""" nohup python main.py &"""
 # pylint: disable=not-callable
 # pylint: disable=no-member
 
@@ -160,12 +161,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    """
+
     parser.add_argument("--logdir", type=str, default="log-cheetah")
     parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")
     parser.add_argument("--max_episode_len", type=int, default=5000)
     parser.add_argument("--action_repeat", type=int, default=2)
-    parser.add_argument("--env_std", type=float, default=0.02)
+    parser.add_argument("--env_std", type=float, default=0.01)
     parser.add_argument("--action_noise", type=float, default=0.3)
     parser.add_argument("--ensemble_size", type=int, default=5)
     parser.add_argument("--buffer_size", type=int, default=10 ** 6)
@@ -186,6 +187,11 @@ if __name__ == "__main__":
     parser.add_argument("--use_reward", type=bool, default=True)
     parser.add_argument("--use_exploration", type=bool, default=False)
     parser.add_argument("--expl_scale", type=int, default=1)
+
+    args = parser.parse_args()
+    main(args)
+
+    
     """
     parser.add_argument("--logdir", type=str, default="log-cheetah")
     parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")
@@ -212,6 +218,4 @@ if __name__ == "__main__":
     parser.add_argument("--use_reward", type=bool, default=True)
     parser.add_argument("--use_exploration", type=bool, default=False)
     parser.add_argument("--expl_scale", type=int, default=1)
-
-    args = parser.parse_args()
-    main(args)
+    """

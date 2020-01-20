@@ -3,6 +3,7 @@
 
 import torch
 import torch.nn as nn
+import numpy as np
 
 from copy import deepcopy
 
@@ -34,12 +35,10 @@ class Agent(object):
             state = self.env.reset()
             while not done:
                 action = self.planner(state)
+                action = action.cpu().detach().numpy()
 
                 if action_noise > 0:
-                    action = action + torch.normal(
-                        mean=0, std=action_noise, size=action.size()
-                    ).to(action.device)
-                action = action.cpu().detach().numpy()
+                    action = action + np.random.normal(0, action_noise, action.shape)
 
                 next_state, reward, done = self.env.step(action)
                 total_reward += reward

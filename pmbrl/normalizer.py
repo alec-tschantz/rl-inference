@@ -73,8 +73,8 @@ class TransitionNormalizer(object):
     @staticmethod
     def setup_vars(x, mean, stdev):
         mean, stdev = mean.copy(), stdev.copy()
-        mean = torch.from_numpy(mean).to(x.device)
-        stdev = torch.from_numpy(stdev).to(x.device)
+        mean = torch.from_numpy(mean).float().to(x.device)
+        stdev = torch.from_numpy(stdev).float().to(x.device)
 
         return mean, stdev
 

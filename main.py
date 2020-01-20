@@ -1,5 +1,9 @@
-""" scp -r pmbrl at449@allocortex.inf.susx.ac.uk:/its/home/at449/ """
-""" nohup python main.py &"""
+""" 
+scp -r pmbrl at449@allocortex.inf.susx.ac.uk:/its/home/at449/ 
+nohup python main.py &
+ps -ef 
+kill PID 
+"""
 # pylint: disable=not-callable
 # pylint: disable=no-member
 

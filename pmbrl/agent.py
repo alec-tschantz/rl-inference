@@ -25,9 +25,7 @@ class Agent(object):
                     break
         return buffer
 
-    def run_episode(self, buffer=None, render=False, action_noise=0):
-        trajectory = []
-        actions = []
+    def run_episode(self, buffer=None, action_noise=0.0):
         total_reward = 0
         done = False
 
@@ -35,18 +33,16 @@ class Agent(object):
             state = self.env.reset()
             while not done:
                 action = self.planner(state)
+
                 if action_noise > 0:
                     action = action + torch.normal(
                         mean=0, std=action_noise, size=action.size()
                     ).to(action.device)
-                trajectory.append(state)
-                actions.append(action)
+                action = action.cpu().detach().numpy()
+
                 next_state, reward, done = self.env.step(action)
+                total_reward += reward
 
-                if render:
-                    self.env.render()
-
-                total_reward += reward.item()
                 if buffer is not None:
                     buffer.add(state, action, reward, next_state)
                 state = deepcopy(next_state)
@@ -54,10 +50,9 @@ class Agent(object):
                     break
 
         self.env.close()
+        total_steps = self.env.steps
 
-        trajectory = torch.stack(trajectory)
-        actions = torch.stack(actions)
         if buffer is not None:
-            return total_reward, trajectory, actions, buffer
+            return total_reward, total_steps, buffer
         else:
-            return total_reward, trajectory, actions
+            return total_reward, total_steps

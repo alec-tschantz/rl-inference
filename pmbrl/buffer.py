@@ -21,14 +21,13 @@ class Buffer(object):
         self.buffer_size = buffer_size
         self.device = device
 
-        self.states = torch.zeros(buffer_size, state_size).float().to(self.device)
-        self.actions = torch.zeros(buffer_size, action_size).float().to(self.device)
-        self.rewards = torch.zeros(buffer_size, 1).float().to(self.device)
-        self.state_deltas = torch.zeros(buffer_size, state_size).float().to(self.device)
+        self.states = np.zeros((buffer_size, state_size))
+        self.actions = np.zeros((buffer_size, action_size))
+        self.rewards = np.zeros((buffer_size, 1))
+        self.state_deltas = np.zeros((buffer_size, state_size))
 
         self.normalizer = normalizer
-
-        self.n_elements = 0
+        self._total_steps = 0
 
     def add(self, state, action, reward, next_state):
         idx = self.n_elements % self.buffer_size
@@ -40,7 +39,7 @@ class Buffer(object):
         self.rewards[idx] = reward
         self.state_deltas[idx] = state_delta
 
-        self.n_elements += 1
+        self._total_steps += 1
 
         if self.normalizer is not None:
             self.normalizer.update(state, action, state_delta)
@@ -68,6 +67,11 @@ class Buffer(object):
             rewards = self.rewards[batch_indices]
             state_deltas = self.state_deltas[batch_indices]
 
+            states = torch.from_numpy(states).float().to(self.device)
+            actions = torch.from_numpy(actions).float().to(self.device)
+            rewards = torch.from_numpy(rewards).float().to(self.device)
+            state_deltas = torch.from_numpy(state_deltas).float().to(self.device)
+
             states = states.reshape(self.ensemble_size, batch_size, self.state_size)
             actions = actions.reshape(self.ensemble_size, batch_size, self.action_size)
             rewards = rewards.reshape(self.ensemble_size, batch_size, 1)
@@ -77,9 +81,9 @@ class Buffer(object):
 
             yield states, actions, rewards, state_deltas
 
-    @property
-    def size(self):
-        return self.n_elements
-
     def __len__(self):
-        return min(self.n_elements, self.buffer_size)
+        return min(self._total_steps, self.buffer_size)
+
+    @property
+    def total_steps(self):
+        return self._total_steps

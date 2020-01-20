@@ -8,6 +8,7 @@ from torch.distributions import Normal
 
 SWISH = "swish"
 LEAKY_RELU = "leaky_relu"
+RELU = "relu"
 TANH = "tanh"
 LINEAR = "linear"
 
@@ -59,7 +60,7 @@ class EnsembleModel(nn.Module):
         hidden_size,
         ensemble_size,
         normalizer,
-        non_linearity="swish",
+        non_linearity=SWISH,
         device="cpu",
     ):
         super().__init__()
@@ -130,7 +131,7 @@ class EnsembleModel(nn.Module):
 
         return delta_mean, delta_var
 
-    def forward(self, states, actions, return_delta=False):
+    def forward(self, states, actions):
         normalized_states, normalized_actions = self._pre_process_model_inputs(
             states, actions
         )
@@ -143,28 +144,22 @@ class EnsembleModel(nn.Module):
             normalized_delta_mean, normalized_delta_var
         )
 
-        next_state_mean = delta_mean + states.to(self.device)
-
-        if return_delta:
-            return next_state_mean, delta_var, delta_mean
-        else:
-            return next_state_mean, delta_var
+        return delta_mean, delta_var
 
     def sample(self, mean, var):
         return Normal(mean, torch.sqrt(var)).sample()
 
-    def loss(self, states, actions, state_deltas, training_noise_stdev=0):
+    def loss(self, states, actions, state_deltas):
         states, actions = self._pre_process_model_inputs(states, actions)
         delta_targets = self._pre_process_model_targets(state_deltas)
         delta_mu, delta_var = self._propagate_network(states, actions)
         loss = (delta_mu - delta_targets) ** 2 / delta_var + torch.log(delta_var)
         loss = loss.mean(-1).mean(-1).sum()
-
         return loss
 
 
 class RewardModel(nn.Module):
-    def __init__(self, state_size, hidden_size, act_fn="relu"):
+    def __init__(self, state_size, hidden_size, act_fn=RELU):
         super().__init__()
         self.act_fn = getattr(F, act_fn)
         self.fc1 = nn.Linear(state_size, hidden_size)

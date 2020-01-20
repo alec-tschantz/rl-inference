@@ -4,12 +4,13 @@
 import torch
 import torch.nn as nn
 
-from .measures import get_info_gain
+from .measures import InformationGain
+
 
 class Planner(nn.Module):
     def __init__(
         self,
-        dynamics_model,
+        ensemble,
         reward_model,
         action_size,
         plan_horizon,
@@ -22,10 +23,10 @@ class Planner(nn.Module):
         device="cpu",
     ):
         super().__init__()
-        self.dynamics_model = dynamics_model
+        self.ensemble = ensemble
         self.reward_model = reward_model
         self.action_size = action_size
-        self.ensemble_size = dynamics_model.ensemble_size
+        self.ensemble_size = ensemble.ensemble_size
 
         self.plan_horizon = plan_horizon
         self.optimisation_iters = optimisation_iters
@@ -37,7 +38,10 @@ class Planner(nn.Module):
         self.expl_scale = expl_scale
         self.device = device
 
+        self.measure = InformationGain(self.ensemble)
+
     def forward(self, state):
+        state = torch.from_numpy(state).float().to(self.device)
         state_size = state.size(0)
         state = state.unsqueeze(dim=0).unsqueeze(dim=0)
         state = state.repeat(self.ensemble_size, self.n_candidates, 1)
@@ -61,10 +65,7 @@ class Planner(nn.Module):
             returns = torch.zeros(self.n_candidates).float().to(self.device)
 
             if self.use_exploration:
-                expl_bonus = (
-                    get_info_gain(delta_means, delta_vars, self.dynamics_model)
-                    * self.expl_scale
-                )
+                expl_bonus = self.measure(delta_means, delta_vars) * self.expl_scale
                 expl_bonus = expl_bonus.sum(dim=0)
                 returns += expl_bonus
 
@@ -101,24 +102,19 @@ class Planner(nn.Module):
     def perform_rollout(self, current_state, actions):
         T = self.plan_horizon + 1
         states = [torch.empty(0)] * T
-        delta_vars = [torch.empty(0)] * T
         delta_means = [torch.empty(0)] * T
+        delta_vars = [torch.empty(0)] * T
         states[0] = current_state
 
         actions = actions.unsqueeze(0)
         actions = actions.repeat(self.ensemble_size, 1, 1, 1).permute(1, 0, 2, 3)
 
         for t in range(self.plan_horizon):
-            _, delta_var, delta_mean = self.dynamics_model(
-                states[t], actions[t], return_delta=True
-            )
-
-            states[t + 1] = states[t] + self.dynamics_model.sample(
-                delta_mean, delta_var
-            )
+            delta_mean, delta_var = self.ensemble(states[t], actions[t])
+            states[t + 1] = states[t] + self.ensemble.sample(delta_mean, delta_var)
             # states[t + 1] = mean
-            delta_vars[t + 1] = delta_var
             delta_means[t + 1] = delta_mean
+            delta_vars[t + 1] = delta_var
 
         states = torch.stack(states[1:], dim=0)
         delta_vars = torch.stack(delta_vars[1:], dim=0)

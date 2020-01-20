@@ -1,0 +1,5 @@
+SPARSE_MOUNTAIN_CAR = "SparseMountainCar"
+SPARSE_CARTPOLE_SWINGUP = "SparseCartpoleSwingup"
+SPARSE_DOUBLE_PENDULUM = "SparseDoublePendulum"
+SPARSE_HALF_CHEETAH = "SparseHalfCheetah"
+SPARSE_BIPEDAL_WALKER = "SparseBipedalWalker"

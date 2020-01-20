@@ -39,7 +39,7 @@ def entropy_of_average(samples):
     k = 3
 
     distances_yy = batched_cdist_l2(samples, samples)
-    y2 = torch.sort(distances_yy, dim=1).values
+    y2,_ = torch.sort(distances_yy, dim=1)
     v = volume_of_the_unit_ball(dims)
     h = (
         np.log(n_samples - 1)

@@ -25,13 +25,12 @@ class Buffer(object):
         self.actions = torch.zeros(buffer_size, action_size).float().to(self.device)
         self.rewards = torch.zeros(buffer_size, 1).float().to(self.device)
         self.state_deltas = torch.zeros(buffer_size, state_size).float().to(self.device)
-        self.terminals = torch.zeros(buffer_size, 1).long().to(self.device)
 
         self.normalizer = normalizer
 
         self.n_elements = 0
 
-    def add(self, state, action, reward, next_state, terminal):
+    def add(self, state, action, reward, next_state):
         idx = self.n_elements % self.buffer_size
 
         state_delta = next_state - state
@@ -40,7 +39,6 @@ class Buffer(object):
         self.actions[idx] = action
         self.rewards[idx] = reward
         self.state_deltas[idx] = state_delta
-        self.terminals[idx] = terminal
 
         self.n_elements += 1
 
@@ -69,7 +67,6 @@ class Buffer(object):
             actions = self.actions[batch_indices]
             rewards = self.rewards[batch_indices]
             state_deltas = self.state_deltas[batch_indices]
-            terminals = self.terminals[batch_indices]
 
             states = states.reshape(self.ensemble_size, batch_size, self.state_size)
             actions = actions.reshape(self.ensemble_size, batch_size, self.action_size)
@@ -77,9 +74,8 @@ class Buffer(object):
             state_deltas = state_deltas.reshape(
                 self.ensemble_size, batch_size, self.state_size
             )
-            terminals = terminals.reshape(self.ensemble_size, batch_size, 1)
 
-            yield states, actions, rewards, state_deltas, terminals
+            yield states, actions, rewards, state_deltas
 
     @property
     def size(self):

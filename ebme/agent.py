@@ -19,7 +19,7 @@ class Agent(object):
             while not done:
                 action = self.env.sample_action()
                 next_state, reward, done = self.env.step(action)
-                buffer.add(state, action, reward, next_state, done)
+                buffer.add(state, action, reward, next_state)
                 state = deepcopy(next_state)
                 if done:
                     break
@@ -48,7 +48,7 @@ class Agent(object):
 
                 total_reward += reward.item()
                 if buffer is not None:
-                    buffer.add(state, action, reward, next_state, done)
+                    buffer.add(state, action, reward, next_state)
                 state = deepcopy(next_state)
                 if done:
                     break

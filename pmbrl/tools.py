@@ -85,7 +85,7 @@ def build_metrics():
         "test_rewards": [],
         "test_steps": [],
         "total_steps": [],
-        "episode_time": []
+        "episode_time": [],
     }
 
 

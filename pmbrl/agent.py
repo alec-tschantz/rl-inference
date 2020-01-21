@@ -51,8 +51,9 @@ class Agent(object):
                     break
 
         self.env.close()
+        stats = self.planner.get_stats()
 
         if buffer is not None:
-            return total_reward, total_steps, buffer
+            return total_reward, total_steps, buffer, stats
         else:
-            return total_reward, total_steps
+            return total_reward, total_steps, stats

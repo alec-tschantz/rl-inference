@@ -38,7 +38,26 @@ class Planner(nn.Module):
         self.expl_scale = expl_scale
         self.device = device
 
-        self.measure = InformationGain(self.ensemble)
+        self.measure = InformationGain(self.ensemble, self.expl_scale)
+        self.reward_stats = []
+
+    def get_stats(self):
+        if self.use_exploration:
+            info_stats = self.measure.get_stats()
+        else:
+            info_stats = {}
+        reward_tensor = torch.stack(self.reward_stats)
+        reward_tensor = reward_tensor.view(-1)
+
+        reward_stats = {
+            "max": reward_tensor.max().item(),
+            "mean": reward_tensor.mean().item(),
+            "min": reward_tensor.min().item(),
+            "std": reward_tensor.std().item(),
+        }
+
+        self.reward_stats = []
+        return info_stats, reward_stats
 
     def forward(self, state):
         state = torch.from_numpy(state).float().to(self.device)
@@ -78,6 +97,7 @@ class Planner(nn.Module):
                 )
 
                 rewards = rewards.mean(dim=1).sum(dim=0)
+                self.reward_stats.append(rewards)
                 returns += rewards
 
             returns = torch.where(

@@ -7,8 +7,23 @@ from scipy.special import psi, gamma
 
 
 class InformationGain(object):
-    def __init__(self, model):
+    def __init__(self, model, expl_scale):
         self.model = model
+        self.expl_scale = expl_scale
+        self.info_gains_trial = []
+        self.alpha = 0.1
+
+    def get_stats(self):
+        info_gain_tensor = torch.stack(self.info_gains_trial)
+        info_gain_tensor = info_gain_tensor.view(-1) * self.expl_scale
+        stats = {
+            "max": info_gain_tensor.max().item(),
+            "mean": info_gain_tensor.mean().item(),
+            "min": info_gain_tensor.min().item(),
+            "std": info_gain_tensor.std().item(),
+        }
+        self.info_gains_trial = []
+        return stats
 
     def __call__(self, delta_means, delta_vars):
         """
@@ -31,7 +46,8 @@ class InformationGain(object):
             ent_avg = self.entropy_of_average(delta_states[t])
             avg_ent = self.average_of_entropy(delta_vars[t])
             info_gains[t, :] = ent_avg - avg_ent
-
+        
+        self.info_gains_trial.append(info_gains.sum(dim=0))
         return info_gains
 
     def entropy_of_average(self, samples):

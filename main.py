@@ -2,7 +2,7 @@
 scp -r pmbrl at449@allocortex.inf.susx.ac.uk:/its/home/at449/ 
 scp -r at449@allocortex.inf.susx.ac.uk:/its/home/at449/pmbrl pmbrl
 nohup python main.py &
-ps -ef 
+ps -ef | grep "main.py"
 kill PID 
 """
 # pylint: disable=not-callable
@@ -127,25 +127,32 @@ def main(args):
         end_time_training = time.process_time() - start_time_training
         tools.log("Total training time: {:.2f}".format(end_time_training))
 
-        start_time_expl = time.process_time()
-        expl_reward, expl_steps, buffer = agent.run_episode(
-            buffer=buffer, action_noise=args.action_noise
-        )
-        metrics["train_rewards"].append(expl_reward)
-        metrics["train_steps"].append(expl_steps)
-        message = "Exploration: [reward {:.2f} | steps {:.2f} ]"
-        tools.log(message.format(expl_reward, expl_steps))
-        end_time_expl = time.process_time() - start_time_expl
-        tools.log("Total exploration time: {:.2f}".format(end_time_expl))
+        if args.do_noise_exploration:
+            start_time_expl = time.process_time()
+            expl_reward, expl_steps, buffer, stats = agent.run_episode(
+                buffer=buffer, action_noise=args.action_noise
+            )
+            metrics["train_rewards"].append(expl_reward)
+            metrics["train_steps"].append(expl_steps)
+            message = "Exploration: [reward {:.2f} | steps {:.2f} ]"
+            tools.log(message.format(expl_reward, expl_steps))
+            end_time_expl = time.process_time() - start_time_expl
+            tools.log("Total exploration time: {:.2f}".format(end_time_expl))
+            info_stats, reward_stats = stats
+            print("Info stats: \n {}".format(info_stats))
+            print("Reward stats: \n {}".format(reward_stats))
 
         start_time = time.process_time()
-        reward, steps, buffer = agent.run_episode(buffer=buffer)
+        reward, steps, buffer, stats = agent.run_episode(buffer=buffer)
         metrics["test_rewards"].append(reward)
         metrics["test_steps"].append(steps)
         message = "Exploitation: [reward {:.2f} | steps {:.2f} ]"
         tools.log(message.format(reward, steps))
         end_time = time.process_time() - start_time
         tools.log("Total exploitation time: {:.2f}".format(end_time))
+        info_stats, reward_stats = stats
+        print("Info stats: \n {}".format(info_stats))
+        print("Reward stats: \n {}".format(reward_stats))
 
         end_time_episode = time.process_time() - start_time_episode
         tools.log("Total episode time: {:.2f}".format(end_time_episode))
@@ -166,14 +173,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
     parser.add_argument("--logdir", type=str, default="log-cheetah")
     parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")
     parser.add_argument("--max_episode_len", type=int, default=5000)
     parser.add_argument("--action_repeat", type=int, default=1)
     parser.add_argument("--env_std", type=float, default=0.01)
     parser.add_argument("--action_noise", type=float, default=0.3)
-    parser.add_argument("--ensemble_size", type=int, default=5)
+    parser.add_argument("--ensemble_size", type=int, default=10)
     parser.add_argument("--buffer_size", type=int, default=10 ** 6)
     parser.add_argument("--hidden_size", type=int, default=200)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
@@ -184,19 +190,19 @@ if __name__ == "__main__":
     parser.add_argument("--top_candidates", type=int, default=50)
     parser.add_argument("--n_seed_episodes", type=int, default=5)
     parser.add_argument("--n_train_epochs", type=int, default=5)
-    parser.add_argument("--n_episodes", type=int, default=2000)
+    parser.add_argument("--n_episodes", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--grad_clip_norm", type=int, default=1000)
     parser.add_argument("--log_every", type=int, default=20)
     parser.add_argument("--save_every", type=int, default=20)
     parser.add_argument("--use_reward", type=bool, default=True)
-    parser.add_argument("--use_exploration", type=bool, default=False)
+    parser.add_argument("--use_exploration", type=bool, default=True)
+    parser.add_argument("--do_noise_exploration", type=bool, default=False)
     parser.add_argument("--expl_scale", type=int, default=1)
 
     args = parser.parse_args()
     main(args)
 
-    
     """
     parser.add_argument("--logdir", type=str, default="log-cheetah")
     parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")

@@ -165,14 +165,16 @@ class RewardModel(nn.Module):
     def __init__(self, state_size, hidden_size, act_fn=RELU):
         super().__init__()
         self.act_fn = getattr(F, act_fn)
-        self.fc1 = nn.Linear(state_size, hidden_size)
-        self.fc2 = nn.Linear(hidden_size, hidden_size)
-        self.fc3 = nn.Linear(hidden_size, 1)
+        self.fc_1 = nn.Linear(state_size, hidden_size)
+        self.fc_2 = nn.Linear(hidden_size, hidden_size)
+        self.fc_3 = nn.Linear(hidden_size, hidden_size)
+        self.fc_4 = nn.Linear(hidden_size, 1)
 
     def forward(self, state):
-        reward = self.act_fn(self.fc1(state))
-        reward = self.act_fn(self.fc2(reward))
-        reward = self.fc3(reward).squeeze(dim=1)
+        reward = self.act_fn(self.fc_1(state))
+        reward = self.act_fn(self.fc_2(reward))
+        reward = self.act_fn(self.fc_3(reward))
+        reward = self.fc_4(reward).squeeze(dim=1)
         return reward
 
     def loss(self, states, rewards):

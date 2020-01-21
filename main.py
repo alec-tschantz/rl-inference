@@ -139,8 +139,8 @@ def main(args):
             end_time_expl = time.process_time() - start_time_expl
             tools.log("Total exploration time: {:.2f}".format(end_time_expl))
             info_stats, reward_stats = stats
-            print("Info stats: \n {}".format(info_stats))
-            print("Reward stats: \n {}".format(reward_stats))
+            tools.log("Info stats: \n {}".format(info_stats))
+            tools.log("Reward stats: \n {}".format(reward_stats))
 
         start_time = time.process_time()
         reward, steps, buffer, stats = agent.run_episode(buffer=buffer)
@@ -151,8 +151,8 @@ def main(args):
         end_time = time.process_time() - start_time
         tools.log("Total exploitation time: {:.2f}".format(end_time))
         info_stats, reward_stats = stats
-        print("Info stats: \n {}".format(info_stats))
-        print("Reward stats: \n {}".format(reward_stats))
+        tools.log("Info stats: \n {}".format(info_stats))
+        tools.log("Reward stats: \n {}".format(reward_stats))
 
         end_time_episode = time.process_time() - start_time_episode
         tools.log("Total episode time: {:.2f}".format(end_time_episode))

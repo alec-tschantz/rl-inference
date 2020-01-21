@@ -70,7 +70,7 @@ class InformationGain(object):
         return np.pi ** (dim / 2) / gamma(dim / 2 + 1)
 
     def average_of_entropy(self, delta_vars):
-        return torch.mean(self, self.gaussian_diagonal_entropy(delta_vars), dim=0)
+        return torch.mean(self.gaussian_diagonal_entropy(delta_vars), dim=0)
 
     def gaussian_diagonal_entropy(self, delta_vars):
         min_variance = 1e-8

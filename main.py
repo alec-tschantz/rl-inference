@@ -177,7 +177,7 @@ if __name__ == "__main__":
     parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")
     parser.add_argument("--max_episode_len", type=int, default=5000)
     parser.add_argument("--action_repeat", type=int, default=1)
-    parser.add_argument("--env_std", type=float, default=0.01)
+    parser.add_argument("--env_std", type=float, default=0.02)
     parser.add_argument("--action_noise", type=float, default=0.3)
     parser.add_argument("--ensemble_size", type=int, default=10)
     parser.add_argument("--buffer_size", type=int, default=10 ** 6)

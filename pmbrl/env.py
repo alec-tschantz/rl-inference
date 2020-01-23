@@ -5,6 +5,8 @@ import numpy as np
 import gym
 import torch
 
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
+
 
 class GymEnv(object):
     def __init__(self, env_name, max_episode_len, action_repeat=1, seed=None):
@@ -16,6 +18,11 @@ class GymEnv(object):
         if seed is not None:
             self._env.seed(seed)
         self.t = 0
+        self.do_render = False
+
+    def setup_render(self, path):
+        self.recorder = VideoRecorder(self._env, path=path)
+        self.do_render = True
 
     def reset(self):
         self.t = 0
@@ -41,10 +48,15 @@ class GymEnv(object):
         return self._env.action_space.sample()
 
     def render(self):
-        self._env.render()
+        self.recorder.capture_frame()
 
     def close(self):
         self._env.close()
+        if self.do_render:
+            self.recorder.capture_frame()
+            self.recorder.close()
+            self.recorder = None
+            self.do_render = False
 
     @property
     def state_dims(self):
@@ -58,6 +70,9 @@ class GymEnv(object):
 class Wrapper(GymEnv):
     def __init__(self, env):
         self.env = env
+
+    def setup_render(self, path):
+        return self.env.setup_render(path)
 
     def step(self, action):
         return self.env.step(action)

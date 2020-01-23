@@ -162,15 +162,17 @@ class EnsembleModel(nn.Module):
 
 
 class RewardModel(nn.Module):
-    def __init__(self, state_size, hidden_size, act_fn=RELU):
+    def __init__(self, state_size, hidden_size, normalizer, act_fn=RELU):
         super().__init__()
         self.act_fn = getattr(F, act_fn)
         self.fc_1 = nn.Linear(state_size, hidden_size)
         self.fc_2 = nn.Linear(hidden_size, hidden_size)
         self.fc_3 = nn.Linear(hidden_size, hidden_size)
         self.fc_4 = nn.Linear(hidden_size, 1)
+        self.normalizer = normalizer
 
     def forward(self, state):
+        state = self.normalizer.normalize_states(state)
         reward = self.act_fn(self.fc_1(state))
         reward = self.act_fn(self.fc_2(reward))
         reward = self.act_fn(self.fc_3(reward))
@@ -178,5 +180,9 @@ class RewardModel(nn.Module):
         return reward
 
     def loss(self, states, rewards):
+        states = self.normalizer.normalize_states(states)
         r_hat = self(states)
         return F.mse_loss(r_hat, rewards)
+
+    def set_normalizer(self, normalizer):
+        self.normalizer = normalizer

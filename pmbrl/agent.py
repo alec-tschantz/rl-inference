@@ -9,9 +9,10 @@ from copy import deepcopy
 
 
 class Agent(object):
-    def __init__(self, env, planner):
+    def __init__(self, env, planner, logdir):
         self.env = env
         self.planner = planner
+        self.logdir
 
     def get_seed_episodes(self, buffer, n_episodes):
         for _ in range(n_episodes):
@@ -26,10 +27,14 @@ class Agent(object):
                     break
         return buffer
 
-    def run_episode(self, buffer=None, action_noise=0.0):
+    def run_episode(self, buffer=None, render=False, episode=None, action_noise=0.0):
         total_reward = 0
         total_steps = 0
         done = False
+
+        if render:
+            filename = self.logdir + "/episode_{}.mp4".format(episode)
+            self.env.setup_render(filename)
 
         with torch.no_grad():
             state = self.env.reset()

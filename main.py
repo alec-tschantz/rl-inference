@@ -1,10 +1,3 @@
-""" 
-scp -r pmbrl at449@allocortex.inf.susx.ac.uk:/its/home/at449/ 
-scp -r at449@allocortex.inf.susx.ac.uk:/its/home/at449/pmbrl pmbrl
-nohup python main.py &
-ps -ef | grep "main.py"
-kill PID 
-"""
 # pylint: disable=not-callable
 # pylint: disable=no-member
 
@@ -53,7 +46,7 @@ def main(args):
         normalizer,
         device=DEVICE,
     ).to(DEVICE)
-    reward_model = RewardModel(state_size, args.hidden_size).to(DEVICE)
+    reward_model = RewardModel(state_size, args.hidden_size, normalizer).to(DEVICE)
     params = list(ensemble.parameters()) + list(reward_model.parameters())
     optim = torch.optim.Adam(params, lr=args.learning_rate, eps=args.epsilon)
 
@@ -70,7 +63,7 @@ def main(args):
         expl_scale=args.expl_scale,
         device=DEVICE,
     ).to(DEVICE)
-    agent = Agent(env, planner)
+    agent = Agent(env, planner, args.logdir)
 
     if tools.logdir_exists(args.logdir):
         tools.log("Loading existing _logdir_ at {}".format(args.logdir))
@@ -81,6 +74,7 @@ def main(args):
         model_dict = tools.load_model_dict(args.logdir, metrics["last_save"])
         ensemble.load_state_dict(model_dict["ensemble"])
         ensemble.set_normalizer(normalizer)
+        reward_model.set_normalizer(normalizer)
         reward_model.load_state_dict(model_dict["reward"])
         optim.load_state_dict(model_dict["optim"])
     else:
@@ -142,8 +136,14 @@ def main(args):
             tools.log("Info stats: \n {}".format(info_stats))
             tools.log("Reward stats: \n {}".format(reward_stats))
 
+        render = False
+        if episode % args.save_every == 0:
+            render = True
+
         start_time = time.process_time()
-        reward, steps, buffer, stats = agent.run_episode(buffer=buffer)
+        reward, steps, buffer, stats = agent.run_episode(
+            buffer=buffer, render=render, episode=episode
+        )
         metrics["test_rewards"].append(reward)
         metrics["test_steps"].append(steps)
         message = "Exploitation: [reward {:.2f} | steps {:.2f} ]"
@@ -174,9 +174,9 @@ if __name__ == "__main__":
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     parser.add_argument("--logdir", type=str, default="log-cheetah")
-    parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")
-    parser.add_argument("--max_episode_len", type=int, default=5000)
-    parser.add_argument("--action_repeat", type=int, default=1)
+    parser.add_argument("--env_name", type=str, default="HalfCheetah-v2")
+    parser.add_argument("--max_episode_len", type=int, default=1000)
+    parser.add_argument("--action_repeat", type=int, default=2)
     parser.add_argument("--env_std", type=float, default=0.02)
     parser.add_argument("--action_noise", type=float, default=0.3)
     parser.add_argument("--ensemble_size", type=int, default=10)
@@ -184,49 +184,21 @@ if __name__ == "__main__":
     parser.add_argument("--hidden_size", type=int, default=200)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
     parser.add_argument("--epsilon", type=float, default=1e-4)
-    parser.add_argument("--plan_horizon", type=int, default=30)
+    parser.add_argument("--plan_horizon", type=int, default=20)
     parser.add_argument("--n_candidates", type=int, default=500)
     parser.add_argument("--optimisation_iters", type=int, default=5)
     parser.add_argument("--top_candidates", type=int, default=50)
     parser.add_argument("--n_seed_episodes", type=int, default=5)
     parser.add_argument("--n_train_epochs", type=int, default=5)
-    parser.add_argument("--n_episodes", type=int, default=100)
+    parser.add_argument("--n_episodes", type=int, default=150)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--grad_clip_norm", type=int, default=1000)
     parser.add_argument("--log_every", type=int, default=20)
     parser.add_argument("--save_every", type=int, default=20)
     parser.add_argument("--use_reward", type=bool, default=True)
-    parser.add_argument("--use_exploration", type=bool, default=True)
-    parser.add_argument("--do_noise_exploration", type=bool, default=False)
-    parser.add_argument("--expl_scale", type=int, default=1)
+    parser.add_argument("--use_exploration", type=bool, default=False)
+    parser.add_argument("--do_noise_exploration", type=bool, default=True)
+    parser.add_argument("--expl_scale", type=float, default=1)
 
     args = parser.parse_args()
     main(args)
-
-    """
-    parser.add_argument("--logdir", type=str, default="log-cheetah")
-    parser.add_argument("--env_name", type=str, default="RoboschoolHalfCheetah-v1")
-    parser.add_argument("--max_episode_len", type=int, default=10)
-    parser.add_argument("--action_repeat", type=int, default=2)
-    parser.add_argument("--env_std", type=float, default=0.02)
-    parser.add_argument("--action_noise", type=float, default=0.3)
-    parser.add_argument("--ensemble_size", type=int, default=5)
-    parser.add_argument("--buffer_size", type=int, default=10 ** 6)
-    parser.add_argument("--hidden_size", type=int, default=10)
-    parser.add_argument("--learning_rate", type=float, default=1e-3)
-    parser.add_argument("--epsilon", type=float, default=1e-4)
-    parser.add_argument("--plan_horizon", type=int, default=2)
-    parser.add_argument("--n_candidates", type=int, default=20)
-    parser.add_argument("--optimisation_iters", type=int, default=2)
-    parser.add_argument("--top_candidates", type=int, default=10)
-    parser.add_argument("--n_seed_episodes", type=int, default=5)
-    parser.add_argument("--n_train_epochs", type=int, default=10)
-    parser.add_argument("--n_episodes", type=int, default=50)
-    parser.add_argument("--batch_size", type=int, default=50)
-    parser.add_argument("--grad_clip_norm", type=int, default=1000)
-    parser.add_argument("--log_every", type=int, default=20)
-    parser.add_argument("--save_every", type=int, default=5)
-    parser.add_argument("--use_reward", type=bool, default=True)
-    parser.add_argument("--use_exploration", type=bool, default=False)
-    parser.add_argument("--expl_scale", type=int, default=1)
-    """

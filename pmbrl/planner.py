@@ -17,8 +17,6 @@ class Planner(nn.Module):
         optimisation_iters,
         n_candidates,
         top_candidates,
-        use_reward=True,
-        use_exploration=True,
         expl_scale=1,
         device="cpu",
     ):
@@ -33,33 +31,35 @@ class Planner(nn.Module):
         self.n_candidates = n_candidates
         self.top_candidates = top_candidates
 
-        self.use_reward = use_reward
-        self.use_exploration = use_exploration
         self.expl_scale = expl_scale
         self.device = device
 
         self.measure = InformationGain(self.ensemble, self.expl_scale)
         self.reward_stats = []
 
-    def get_stats(self):
-        if self.use_exploration:
+    def get_stats(self, use_exploration=True, use_reward=True):
+        if use_exploration:
             info_stats = self.measure.get_stats()
         else:
             info_stats = {}
-        reward_tensor = torch.stack(self.reward_stats)
-        reward_tensor = reward_tensor.view(-1)
 
-        reward_stats = {
-            "max": reward_tensor.max().item(),
-            "mean": reward_tensor.mean().item(),
-            "min": reward_tensor.min().item(),
-            "std": reward_tensor.std().item(),
-        }
+        if use_reward:
+            reward_tensor = torch.stack(self.reward_stats)
+            reward_tensor = reward_tensor.view(-1)
+
+            reward_stats = {
+                "max": reward_tensor.max().item(),
+                "mean": reward_tensor.mean().item(),
+                "min": reward_tensor.min().item(),
+                "std": reward_tensor.std().item(),
+            }
+        else:
+            reward_stats = []
 
         self.reward_stats = []
         return info_stats, reward_stats
 
-    def forward(self, state):
+    def forward(self, state, use_exploration=True, use_reward=True):
         state = torch.from_numpy(state).float().to(self.device)
         state_size = state.size(0)
         state = state.unsqueeze(dim=0).unsqueeze(dim=0)
@@ -83,13 +83,12 @@ class Planner(nn.Module):
             states, delta_vars, delta_means = self.perform_rollout(state, actions)
             returns = torch.zeros(self.n_candidates).float().to(self.device)
 
-            if self.use_exploration:
-                # just use states from above ^
+            if use_exploration:
                 expl_bonus = self.measure(delta_means, delta_vars) * self.expl_scale
                 expl_bonus = expl_bonus.sum(dim=0)
                 returns += expl_bonus
 
-            if self.use_reward:
+            if use_reward:
                 states = states.view(-1, state_size)
                 rewards = self.reward_model(states)
 

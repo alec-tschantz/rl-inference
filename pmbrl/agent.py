@@ -27,7 +27,15 @@ class Agent(object):
                     break
         return buffer
 
-    def run_episode(self, buffer=None, render=False, episode=None, action_noise=0.0):
+    def run_episode(
+        self,
+        buffer=None,
+        use_exploration=True,
+        use_reward=True,
+        render=False,
+        episode=None,
+        action_noise=0.0,
+    ):
         total_reward = 0
         total_steps = 0
         done = False
@@ -39,7 +47,9 @@ class Agent(object):
         with torch.no_grad():
             state = self.env.reset()
             while not done:
-                action = self.planner(state)
+                action = self.planner(
+                    state, use_exploration=use_exploration, use_reward=use_reward
+                )
                 action = action.cpu().detach().numpy()
 
                 if action_noise > 0:
@@ -59,7 +69,9 @@ class Agent(object):
                     break
 
         self.env.close()
-        stats = self.planner.get_stats()
+        stats = self.planner.get_stats(
+            use_exploration=use_exploration, use_reward=use_reward
+        )
 
         if buffer is not None:
             return total_reward, total_steps, buffer, stats

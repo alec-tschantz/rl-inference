@@ -9,10 +9,9 @@ from gym.wrappers.monitoring.video_recorder import VideoRecorder
 from .envs import SparseHalfCheetaEnv
 
 
-
 class GymEnv(object):
     def __init__(self, env_name, max_episode_len, action_repeat=1, seed=None):
-        
+
         if env_name == "SparseHalfCheetah":
             self._env = SparseHalfCheetaEnv()
         else:

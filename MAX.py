@@ -141,8 +141,12 @@ def main(args):
     norm, buffer, ensemble, reward_model, params, optim, agent = build_experiment(args)
     metrics = init_experiment(args, norm, buffer, ensemble, reward_model, optim, agent)
 
+    use_exploration = True
+    use_reward = False
+
     for episode in range(metrics["episode"], args.n_episodes):
         tools.log("\n === Episode {} ===".format(episode))
+        print("> Exploration/exploitation: [{}/{}]".format(use_exploration, use_reward))
         start_time_episode = time.process_time()
         start_time_training = time.process_time()
         tools.log("Training on {} data points".format(buffer.total_steps))
@@ -160,8 +164,8 @@ def main(args):
             buffer,
             render=render,
             episode=episode,
-            use_exploration=True,
-            use_reward=True,
+            use_exploration=use_exploration,
+            use_reward=use_reward,
         )
         metrics["test_rewards"].append(reward)
         metrics["test_steps"].append(steps)
@@ -173,6 +177,9 @@ def main(args):
         metrics["episode"] += 1
         metrics["total_steps"].append(buffer.total_steps)
         metrics["episode_time"].append(end_time_episode)
+
+        use_exploration = not use_exploration
+        use_reward = not use_reward
 
         if episode % args.save_every == 0:
             metrics["episode"] += 1
@@ -189,9 +196,9 @@ if __name__ == "__main__":
     print("Device: {}".format(DEVICE))
 
     parser.add_argument("--logdir", type=str, default="log-cheetah")
-    parser.add_argument("--env_name", type=str, default="SparseHalfCheetah")
+    parser.add_argument("--env_name", type=str, default="SparseHalfCheetahFlip")
     parser.add_argument("--max_episode_len", type=int, default=1000)
-    parser.add_argument("--action_repeat", type=int, default=2)
+    parser.add_argument("--action_repeat", type=int, default=1)
     parser.add_argument("--env_std", type=float, default=0.00)
     parser.add_argument("--ensemble_size", type=int, default=15)
     parser.add_argument("--buffer_size", type=int, default=10 ** 6)
@@ -209,8 +216,6 @@ if __name__ == "__main__":
     parser.add_argument("--grad_clip_norm", type=int, default=1000)
     parser.add_argument("--log_every", type=int, default=20)
     parser.add_argument("--save_every", type=int, default=20)
-    parser.add_argument("--use_reward", type=bool, default=True)
-    parser.add_argument("--use_exploration", type=bool, default=True)
     parser.add_argument("--expl_scale", type=float, default=0.1)
     parser.add_argument("--render_every", type=int, default=1)
 

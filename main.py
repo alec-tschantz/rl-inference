@@ -122,13 +122,12 @@ def run_trial(agent, buffer, render=False, episode=None):
     reward, steps, buffer, stats = agent.run_episode(
         buffer=buffer, render=render, episode=episode
     )
-    metrics["test_rewards"].append(reward)
-    metrics["test_steps"].append(steps)
     message = "Exploitation: [reward {:.2f} | steps {:.2f} ]"
     tools.log(message.format(reward, steps))
     info_stats, reward_stats = stats
     tools.log("> Info stats: \n {}".format(info_stats))
     tools.log("> Reward stats: \n {}".format(reward_stats))
+    return reward, steps
 
 
 def main(args):
@@ -152,7 +151,9 @@ def main(args):
             render = True
 
         start_time = time.process_time()
-        run_trial(agent, buffer, render=render, episode=episode)
+        reward, steps = run_trial(agent, buffer, render=render, episode=episode)
+        metrics["test_rewards"].append(reward)
+        metrics["test_steps"].append(steps)
         end_time = time.process_time() - start_time
         tools.log("Total exploitation time: {:.2f}".format(end_time))
 

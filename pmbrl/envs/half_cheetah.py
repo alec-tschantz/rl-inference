@@ -79,6 +79,16 @@ class SparseHalfCheetaEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.prev_x_torso = np.copy(self.get_body_com("torso")[0:1])
         return self._get_obs()
 
+    def reward(self, states, actions):
+        if self.flip:
+            state_rew = states[:, 12]
+            action_rew = -0.1 * (actions ** 2).sum(dim=-1)
+        else:
+            state_rew = states[:, 0]
+            action_rew = -0.1 * (actions ** 2).sum(dim=-1)
+
+        return (state_rew, action_rew)
+
     def viewer_setup(self):
         self.viewer.cam.distance = self.model.stat.extent * 0.25
         self.viewer.cam.elevation = -55

@@ -63,7 +63,7 @@ def build_experiment(args):
 
 
 def init_experiment(args, norm, buffer, ensemble, reward_model, optim, agent):
-    if tools.logdir_exists(args.logdir):
+    if tools.logdir_exists(args.logdir) and args.save:
         tools.log("Loading existing _logdir_ at {}".format(args.logdir))
         norm = tools.load_normalizer(args.logdir)
         buffer = tools.load_buffer(args.logdir, buffer)
@@ -118,14 +118,22 @@ def train(args, buffer, ensemble, reward_model, optim, params, metrics):
 def run_trial(
     agent, buffer, render=False, episode=None, use_exploration=True, use_reward=True
 ):
+    if use_exploration:
+        reward, steps, buffer, stats = agent.run_episode(
+            buffer=buffer,
+            render=render,
+            episode=episode,
+            use_exploration=use_exploration,
+            use_reward=use_reward,
+        )
+    else:
+        reward, steps, stats = agent.run_episode(
+            render=render,
+            episode=episode,
+            use_exploration=use_exploration,
+            use_reward=use_reward,
+        )
 
-    reward, steps, buffer, stats = agent.run_episode(
-        buffer=buffer,
-        render=render,
-        episode=episode,
-        use_exploration=use_exploration,
-        use_reward=use_reward,
-    )
     message = "Exploitation: [reward {:.2f} | steps {:.2f} ]"
     tools.log(message.format(reward, steps))
     info_stats, reward_stats = stats
@@ -141,22 +149,28 @@ def main(args):
     norm, buffer, ensemble, reward_model, params, optim, agent = build_experiment(args)
     metrics = init_experiment(args, norm, buffer, ensemble, reward_model, optim, agent)
 
-    use_exploration = True
-    use_reward = False
-
     for episode in range(metrics["episode"], args.n_episodes):
         tools.log("\n === Episode {} ===".format(episode))
-        print("> Exploration/exploitation: [{}/{}]".format(use_exploration, use_reward))
+        if episode % args.test_every == 0:
+            use_exploration = False
+            use_reward = True
+        else:
+            use_exploration = True
+            use_reward = False
+
+        render = False
+        if episode % args.render_every == 0:
+            render = True
+
+        tools.log(
+            "Exploration/exploitation: [{}/{}]".format(use_exploration, use_reward)
+        )
         start_time_episode = time.process_time()
         start_time_training = time.process_time()
         tools.log("Training on {} data points".format(buffer.total_steps))
         train(args, buffer, ensemble, reward_model, optim, params, metrics)
         end_time_training = time.process_time() - start_time_training
         tools.log("Total training time: {:.2f}".format(end_time_training))
-
-        render = False
-        if episode % args.render_every == 0:
-            render = True
 
         start_time = time.process_time()
         reward, steps = run_trial(
@@ -197,27 +211,29 @@ if __name__ == "__main__":
 
     parser.add_argument("--logdir", type=str, default="log-cheetah")
     parser.add_argument("--env_name", type=str, default="SparseHalfCheetahFlip")
-    parser.add_argument("--max_episode_len", type=int, default=1000)
+    parser.add_argument("--max_episode_len", type=int, default=100)
     parser.add_argument("--action_repeat", type=int, default=1)
-    parser.add_argument("--env_std", type=float, default=0.00)
+    parser.add_argument("--env_std", type=float, default=0.02)
     parser.add_argument("--ensemble_size", type=int, default=15)
     parser.add_argument("--buffer_size", type=int, default=10 ** 6)
     parser.add_argument("--hidden_size", type=int, default=200)
     parser.add_argument("--learning_rate", type=float, default=1e-3)
     parser.add_argument("--epsilon", type=float, default=1e-4)
-    parser.add_argument("--plan_horizon", type=int, default=12)
+    parser.add_argument("--plan_horizon", type=int, default=25)
     parser.add_argument("--n_candidates", type=int, default=500)
     parser.add_argument("--optimisation_iters", type=int, default=5)
     parser.add_argument("--top_candidates", type=int, default=50)
-    parser.add_argument("--n_seed_episodes", type=int, default=5)
+    parser.add_argument("--n_seed_episodes", type=int, default=1)
     parser.add_argument("--n_train_epochs", type=int, default=5)
-    parser.add_argument("--n_episodes", type=int, default=20)
+    parser.add_argument("--n_episodes", type=int, default=250)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--grad_clip_norm", type=int, default=1000)
     parser.add_argument("--log_every", type=int, default=20)
     parser.add_argument("--save_every", type=int, default=20)
-    parser.add_argument("--expl_scale", type=float, default=0.1)
+    parser.add_argument("--expl_scale", type=float, default=1)
     parser.add_argument("--render_every", type=int, default=1)
+    parser.add_argument("--test_every", type=int, default=5)
+    parser.add_argument("--save", type=bool, default=False)
 
     args = parser.parse_args()
     main(args)

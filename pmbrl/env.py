@@ -6,7 +6,7 @@ import gym
 import torch
 from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
-from .envs import SparseHalfCheetaEnv
+from .envs import SparseHalfCheetaEnv, SparseAntEnv
 
 
 class GymEnv(object):
@@ -16,6 +16,8 @@ class GymEnv(object):
             self._env = SparseHalfCheetaEnv()
         elif env_name == "SparseHalfCheetahFlip":
             self._env = SparseHalfCheetaEnv(flip=True)
+        elif env_name == "SparseAntEnv":
+            self._env = SparseAntEnv()
         else:
             self._env = gym.make(env_name)
         self.max_episode_len = max_episode_len
@@ -52,6 +54,9 @@ class GymEnv(object):
 
     def sample_action(self):
         return self._env.action_space.sample()
+
+    def reward(self, states, action):
+        return self._env.reward(states, action)
 
     def render(self):
         self.recorder.capture_frame()
@@ -94,6 +99,9 @@ class Wrapper(GymEnv):
 
     def sample_action(self):
         return self.env.sample_action()
+
+    def reward(self, states, actions):
+        return self.env.reward(states, actions)
 
     @property
     def state_dims(self):

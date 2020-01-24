@@ -91,12 +91,11 @@ class Planner(nn.Module):
             if use_reward:
                 states = states.view(-1, state_size)
                 rewards = self.reward_model(states)
-
                 rewards = rewards.view(
                     self.plan_horizon, self.ensemble_size, self.n_candidates
                 )
-
                 rewards = rewards.mean(dim=1).sum(dim=0)
+
                 self.reward_stats.append(rewards)
                 returns += rewards
 

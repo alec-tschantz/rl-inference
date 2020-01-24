@@ -80,12 +80,11 @@ def build_metrics():
         "last_save": 0,
         "ensemble_loss": [],
         "reward_loss": [],
-        "train_rewards": [],
-        "train_steps": [],
         "test_rewards": [],
         "test_steps": [],
         "total_steps": [],
         "episode_time": [],
+        "coverage": [],
     }
 
 

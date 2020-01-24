@@ -14,6 +14,8 @@ class GymEnv(object):
 
         if env_name == "SparseHalfCheetah":
             self._env = SparseHalfCheetaEnv()
+        elif env_name == "SparseHalfCheetahFlip":
+            self._env = SparseHalfCheetaEnv(flip=True)
         else:
             self._env = gym.make(env_name)
         self.max_episode_len = max_episode_len

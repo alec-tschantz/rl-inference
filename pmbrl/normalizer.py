@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 
-class TransitionNormalizer(object):
+class Normalizer(object):
     def __init__(self):
         self.state_mean = None
         self.state_sk = None

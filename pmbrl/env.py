@@ -4,14 +4,19 @@
 import numpy as np
 import gym
 import torch
-
 from gym.wrappers.monitoring.video_recorder import VideoRecorder
+
+from .envs import SparseHalfCheetaEnv
+
 
 
 class GymEnv(object):
     def __init__(self, env_name, max_episode_len, action_repeat=1, seed=None):
-
-        self._env = gym.make(env_name)
+        
+        if env_name == "SparseHalfCheetah":
+            self._env = SparseHalfCheetaEnv()
+        else:
+            self._env = gym.make(env_name)
         self.max_episode_len = max_episode_len
         self.action_repeat = action_repeat
         self.done = False

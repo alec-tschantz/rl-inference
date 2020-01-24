@@ -12,7 +12,7 @@ class Agent(object):
     def __init__(self, env, planner, logdir):
         self.env = env
         self.planner = planner
-        self.logdir
+        self.logdir = logdir
 
     def get_seed_episodes(self, buffer, n_episodes):
         for _ in range(n_episodes):
@@ -48,6 +48,9 @@ class Agent(object):
                 next_state, reward, done = self.env.step(action)
                 total_reward += reward
                 total_steps += 1
+
+                if render:
+                    self.env.render()
 
                 if buffer is not None:
                     buffer.add(state, action, reward, next_state)

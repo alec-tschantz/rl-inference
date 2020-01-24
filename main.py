@@ -9,7 +9,7 @@ import argparse
 import time
 
 from pmbrl.env import GymEnv, NoisyEnv
-from pmbrl.normalizer import TransitionNormalizer
+from pmbrl.normalizer import Normalizer
 from pmbrl.buffer import Buffer
 from pmbrl.models import EnsembleModel, RewardModel
 from pmbrl.planner import Planner
@@ -17,10 +17,7 @@ from pmbrl.agent import Agent
 from pmbrl import tools
 
 
-def main(args):
-    tools.log(" === Loading experiment ===")
-    tools.log(args)
-
+def build_experiment(args):
     env = GymEnv(args.env_name, args.max_episode_len, action_repeat=args.action_repeat)
     state_size = env.state_dims[0]
     action_size = env.action_dims[0]
@@ -28,12 +25,12 @@ def main(args):
     if args.env_std > 0.0:
         env = NoisyEnv(env, args.env_std)
 
-    normalizer = TransitionNormalizer()
+    norm = Normalizer()
     buffer = Buffer(
         state_size,
         action_size,
         args.ensemble_size,
-        normalizer,
+        norm,
         buffer_size=args.buffer_size,
         device=DEVICE,
     )
@@ -43,16 +40,16 @@ def main(args):
         state_size,
         args.hidden_size,
         args.ensemble_size,
-        normalizer,
+        norm,
         device=DEVICE,
     ).to(DEVICE)
-    reward_model = RewardModel(state_size, args.hidden_size, normalizer).to(DEVICE)
-    params = list(ensemble.parameters()) + list(reward_model.parameters())
+    reward = RewardModel(state_size, args.hidden_size, norm).to(DEVICE)
+    params = list(ensemble.parameters()) + list(reward.parameters())
     optim = torch.optim.Adam(params, lr=args.learning_rate, eps=args.epsilon)
 
     planner = Planner(
         ensemble,
-        reward_model,
+        reward,
         action_size,
         plan_horizon=args.plan_horizon,
         optimisation_iters=args.optimisation_iters,
@@ -64,18 +61,21 @@ def main(args):
         device=DEVICE,
     ).to(DEVICE)
     agent = Agent(env, planner, args.logdir)
+    return (norm, buffer, ensemble, reward, params, optim, agent)
 
+
+def init_experiment(args, norm, buffer, ensemble, reward, optim, agent):
     if tools.logdir_exists(args.logdir):
         tools.log("Loading existing _logdir_ at {}".format(args.logdir))
-        normalizer = tools.load_normalizer(args.logdir)
+        norm = tools.load_normalizer(args.logdir)
         buffer = tools.load_buffer(args.logdir, buffer)
-        buffer.set_normalizer(normalizer)
+        buffer.set_normalizer(norm)
         metrics = tools.load_metrics(args.logdir)
         model_dict = tools.load_model_dict(args.logdir, metrics["last_save"])
         ensemble.load_state_dict(model_dict["ensemble"])
-        ensemble.set_normalizer(normalizer)
-        reward_model.set_normalizer(normalizer)
-        reward_model.load_state_dict(model_dict["reward"])
+        ensemble.set_normalizer(norm)
+        reward.set_normalizer(norm)
+        reward.load_state_dict(model_dict["reward"])
         optim.load_state_dict(model_dict["optim"])
     else:
         tools.init_dirs(args.logdir)
@@ -83,76 +83,78 @@ def main(args):
         buffer = agent.get_seed_episodes(buffer, args.n_seed_episodes)
         message = "Collected seeds: [{} episodes] [{} frames]"
         tools.log(message.format(args.n_seed_episodes, buffer.total_steps))
+    return metrics
+
+
+def train(args, buffer, ensemble, reward, optim, params, metrics):
+    for epoch in range(args.n_train_epochs):
+        e_losses = []
+        r_losses = []
+
+        for (states, actions, rewards, delta_states) in buffer.get_train_batches(
+            args.batch_size
+        ):
+            ensemble.train()
+            reward.train()
+            optim.zero_grad()
+
+            e_loss = ensemble.loss(states, actions, delta_states)
+            r_loss = reward.loss(states, rewards)
+            e_losses.append(e_loss.item())
+            r_losses.append(r_loss.item())
+            (e_loss + r_loss).backward()
+            torch.nn.utils.clip_grad_norm_(params, args.grad_clip_norm, norm_type=2)
+            optim.step()
+
+        if epoch % args.log_every == 0 and epoch > 0:
+            message = "> Epoch {} [ ensemble {:.2f} | rew {:.2f}]"
+            tools.log(
+                message.format(epoch, sum(e_losses) / epoch, sum(r_losses) / epoch)
+            )
+    metrics["ensemble_loss"].append(sum(e_losses))
+    metrics["reward_loss"].append(sum(r_losses))
+    message = "Losses: [ensemble {} | reward {}]"
+    tools.log(message.format(sum(e_losses), sum(r_losses)))
+
+
+def run_trial(agent, buffer, render=False, episode=None):
+
+    reward, steps, buffer, stats = agent.run_episode(
+        buffer=buffer, render=render, episode=episode
+    )
+    metrics["test_rewards"].append(reward)
+    metrics["test_steps"].append(steps)
+    message = "Exploitation: [reward {:.2f} | steps {:.2f} ]"
+    tools.log(message.format(reward, steps))
+    info_stats, reward_stats = stats
+    tools.log("> Info stats: \n {}".format(info_stats))
+    tools.log("> Reward stats: \n {}".format(reward_stats))
+
+
+def main(args):
+    tools.log(" === Loading experiment ===")
+    tools.log(args)
+
+    norm, buffer, ensemble, reward, params, optim, agent = build_experiment(args)
+    metrics = init_experiment(args, norm, buffer, ensemble, reward, optim, agent)
 
     for episode in range(metrics["episode"], args.n_episodes):
         tools.log("\n === Episode {} ===".format(episode))
         start_time_episode = time.process_time()
         start_time_training = time.process_time()
-
         tools.log("Training on {} data points".format(buffer.total_steps))
-        for epoch in range(args.n_train_epochs):
-            e_losses = []
-            r_losses = []
-
-            for (states, actions, rewards, delta_states) in buffer.get_train_batches(
-                args.batch_size
-            ):
-                ensemble.train()
-                reward_model.train()
-                optim.zero_grad()
-
-                e_loss = ensemble.loss(states, actions, delta_states)
-                r_loss = reward_model.loss(states, rewards)
-                e_losses.append(e_loss.item())
-                r_losses.append(r_loss.item())
-                (e_loss + r_loss).backward()
-                torch.nn.utils.clip_grad_norm_(params, args.grad_clip_norm, norm_type=2)
-                optim.step()
-
-            if epoch % args.log_every == 0 and epoch > 0:
-                message = "> Epoch {} [ ensemble {:.2f} | rew {:.2f}]"
-                tools.log(
-                    message.format(epoch, sum(e_losses) / epoch, sum(r_losses) / epoch)
-                )
-        metrics["ensemble_loss"].append(sum(e_losses))
-        metrics["reward_loss"].append(sum(r_losses))
-        message = "Losses: [ensemble {} | reward {}]"
-        tools.log(message.format(sum(e_losses), sum(r_losses)))
+        train(args, buffer, ensemble, reward, optim, params, metrics)
         end_time_training = time.process_time() - start_time_training
         tools.log("Total training time: {:.2f}".format(end_time_training))
 
-        if args.do_noise_exploration:
-            start_time_expl = time.process_time()
-            expl_reward, expl_steps, buffer, stats = agent.run_episode(
-                buffer=buffer, action_noise=args.action_noise
-            )
-            metrics["train_rewards"].append(expl_reward)
-            metrics["train_steps"].append(expl_steps)
-            message = "Exploration: [reward {:.2f} | steps {:.2f} ]"
-            tools.log(message.format(expl_reward, expl_steps))
-            end_time_expl = time.process_time() - start_time_expl
-            tools.log("Total exploration time: {:.2f}".format(end_time_expl))
-            info_stats, reward_stats = stats
-            tools.log("Info stats: \n {}".format(info_stats))
-            tools.log("Reward stats: \n {}".format(reward_stats))
-
         render = False
-        if episode % args.save_every == 0:
+        if episode % args.render_every == 0:
             render = True
 
         start_time = time.process_time()
-        reward, steps, buffer, stats = agent.run_episode(
-            buffer=buffer, render=render, episode=episode
-        )
-        metrics["test_rewards"].append(reward)
-        metrics["test_steps"].append(steps)
-        message = "Exploitation: [reward {:.2f} | steps {:.2f} ]"
-        tools.log(message.format(reward, steps))
+        run_trial(agent, buffer, render=render, episode=episode)
         end_time = time.process_time() - start_time
         tools.log("Total exploitation time: {:.2f}".format(end_time))
-        info_stats, reward_stats = stats
-        tools.log("Info stats: \n {}".format(info_stats))
-        tools.log("Reward stats: \n {}".format(reward_stats))
 
         end_time_episode = time.process_time() - start_time_episode
         tools.log("Total episode time: {:.2f}".format(end_time_episode))
@@ -163,8 +165,8 @@ def main(args):
         if episode % args.save_every == 0:
             metrics["episode"] += 1
             metrics["last_save"] = episode
-            tools.save_model(args.logdir, ensemble, reward_model, optim, episode)
-            tools.save_normalizer(args.logdir, normalizer)
+            tools.save_model(args.logdir, ensemble, reward, optim, episode)
+            tools.save_normalizer(args.logdir, norm)
             tools.save_buffer(args.logdir, buffer)
             tools.save_metrics(args.logdir, metrics)
 
@@ -177,28 +179,27 @@ if __name__ == "__main__":
     parser.add_argument("--env_name", type=str, default="HalfCheetah-v2")
     parser.add_argument("--max_episode_len", type=int, default=1000)
     parser.add_argument("--action_repeat", type=int, default=2)
-    parser.add_argument("--env_std", type=float, default=0.02)
-    parser.add_argument("--action_noise", type=float, default=0.3)
-    parser.add_argument("--ensemble_size", type=int, default=10)
+    parser.add_argument("--env_std", type=float, default=0.00)
+    parser.add_argument("--ensemble_size", type=int, default=15)
     parser.add_argument("--buffer_size", type=int, default=10 ** 6)
     parser.add_argument("--hidden_size", type=int, default=200)
-    parser.add_argument("--learning_rate", type=float, default=1e-4)
+    parser.add_argument("--learning_rate", type=float, default=1e-3)
     parser.add_argument("--epsilon", type=float, default=1e-4)
-    parser.add_argument("--plan_horizon", type=int, default=20)
+    parser.add_argument("--plan_horizon", type=int, default=12)
     parser.add_argument("--n_candidates", type=int, default=500)
     parser.add_argument("--optimisation_iters", type=int, default=5)
     parser.add_argument("--top_candidates", type=int, default=50)
     parser.add_argument("--n_seed_episodes", type=int, default=5)
     parser.add_argument("--n_train_epochs", type=int, default=5)
-    parser.add_argument("--n_episodes", type=int, default=150)
+    parser.add_argument("--n_episodes", type=int, default=20)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--grad_clip_norm", type=int, default=1000)
     parser.add_argument("--log_every", type=int, default=20)
     parser.add_argument("--save_every", type=int, default=20)
     parser.add_argument("--use_reward", type=bool, default=True)
-    parser.add_argument("--use_exploration", type=bool, default=False)
-    parser.add_argument("--do_noise_exploration", type=bool, default=True)
-    parser.add_argument("--expl_scale", type=float, default=1)
+    parser.add_argument("--use_exploration", type=bool, default=True)
+    parser.add_argument("--expl_scale", type=float, default=0.1)
+    parser.add_argument("--render_every", type=int, default=1)
 
     args = parser.parse_args()
     main(args)

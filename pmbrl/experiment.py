@@ -18,10 +18,15 @@ from pmbrl import tools
 
 
 class Experiment(object):
-    def __init__(self, args):
+    def __init__(self, args, seed=0):
         tools.log("=== Loading experiment ===")
         tools.log("Using: {}".format(args.device))
+        tools.log(args.__dict__)
+        
+        torch.manual_seed(seed)
+        np.random.seed(seed)
         os.makedirs(args.logdir, exist_ok=True)
+        
         self._build_experiment(args)
 
     def run(self):
@@ -229,12 +234,12 @@ class Experiment(object):
         self.metrics["information_mean"].append(info_stats["mean"])
         self.metrics["reward_mean"].append(reward_stats["mean"])
 
-        if self.params.record_states:
+        if self.args.record_states:
             states = []
             for info in infos:
                 states.append(info["x_pos"])
             states = np.array(states)
             message = "Cheetah info: [max {:.2f} | min {:.2f} | mean {:.2f}]"
             tools.log(message.format(states.max(), states.min(), states.mean()))
-            self.metrics.state_info.append(states)
+            self.metrics['state_info'].append(states.max())
 

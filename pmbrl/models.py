@@ -6,44 +6,30 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal
 
-SWISH = "swish"
-LEAKY_RELU = "leaky_relu"
-RELU = "relu"
-TANH = "tanh"
-LINEAR = "linear"
-
 
 def swish(x):
     return x * torch.sigmoid(x)
 
 
 class EnsembleDenseLayer(nn.Module):
-    def __init__(self, in_size, out_size, ensemble_size, non_linearity=SWISH):
+    def __init__(self, in_size, out_size, ensemble_size, non_linearity="swish"):
         super().__init__()
 
         weights = torch.zeros(ensemble_size, in_size, out_size).float()
         biases = torch.zeros(ensemble_size, 1, out_size).float()
 
         for weight in weights:
-            if non_linearity == SWISH:
+            if non_linearity == "swish":
                 nn.init.xavier_uniform_(weight)
-            elif non_linearity == LEAKY_RELU:
-                nn.init.kaiming_normal_(weight)
-            elif non_linearity == TANH:
-                nn.init.kaiming_normal_(weight)
-            elif non_linearity == LINEAR:
+            elif non_linearity == "linear":
                 nn.init.xavier_normal_(weight)
 
         self.weights = nn.Parameter(weights)
         self.biases = nn.Parameter(biases)
 
-        if non_linearity == SWISH:
+        if non_linearity == "swish":
             self.non_linearity = swish
-        elif non_linearity == LEAKY_RELU:
-            self.non_linearity = F.leaky_relu
-        elif non_linearity == TANH:
-            self.non_linearity = torch.tanh
-        elif non_linearity == LINEAR:
+        elif non_linearity == "linear":
             self.non_linearity = lambda x: x
 
     def forward(self, x):
@@ -60,7 +46,7 @@ class EnsembleModel(nn.Module):
         hidden_size,
         ensemble_size,
         normalizer,
-        non_linearity=SWISH,
+        non_linearity="swish",
         device="cpu",
     ):
         super().__init__()
@@ -78,45 +64,33 @@ class EnsembleModel(nn.Module):
             hidden_size, hidden_size, ensemble_size, non_linearity=non_linearity
         )
         self.fc_4 = EnsembleDenseLayer(
-            hidden_size, out_size * 2, ensemble_size, non_linearity=LINEAR
+            hidden_size, out_size * 2, ensemble_size, non_linearity="linear"
         )
 
         self.normalizer = normalizer
-
         self.max_logvar = -1
         self.min_logvar = -5
-
         self.to(device)
 
     def _pre_process_model_inputs(self, states, actions):
         states = states.to(self.device)
         actions = actions.to(self.device)
-
-        if self.normalizer is None:
-            return states, actions
-
         states = self.normalizer.normalize_states(states)
         actions = self.normalizer.normalize_actions(actions)
         return states, actions
 
     def _pre_process_model_targets(self, state_deltas):
         state_deltas = state_deltas.to(self.device)
-
-        if self.normalizer is None:
-            return state_deltas
-
         state_deltas = self.normalizer.normalize_state_deltas(state_deltas)
         return state_deltas
 
     def _post_process_model_outputs(self, delta_mean, delta_var):
-        if self.normalizer is not None:
-            delta_mean = self.normalizer.denormalize_state_delta_means(delta_mean)
-            delta_var = self.normalizer.denormalize_state_delta_vars(delta_var)
+        delta_mean = self.normalizer.denormalize_state_delta_means(delta_mean)
+        delta_var = self.normalizer.denormalize_state_delta_vars(delta_var)
         return delta_mean, delta_var
 
     def _propagate_network(self, states, actions):
         inp = torch.cat((states, actions), dim=2)
-
         op = self.fc_1(inp)
         op = self.fc_2(op)
         op = self.fc_3(op)
@@ -132,16 +106,12 @@ class EnsembleModel(nn.Module):
         return delta_mean, delta_var
 
     def forward(self, states, actions):
-        normalized_states, normalized_actions = self._pre_process_model_inputs(
-            states, actions
+        norm_states, norm_actions = self._pre_process_model_inputs(states, actions)
+        norm_delta_mean, norm_delta_var = self._propagate_network(
+            norm_states, norm_actions
         )
-
-        normalized_delta_mean, normalized_delta_var = self._propagate_network(
-            normalized_states, normalized_actions
-        )
-
         delta_mean, delta_var = self._post_process_model_outputs(
-            normalized_delta_mean, normalized_delta_var
+            norm_delta_mean, norm_delta_var
         )
 
         return delta_mean, delta_var
@@ -162,27 +132,20 @@ class EnsembleModel(nn.Module):
 
 
 class RewardModel(nn.Module):
-    def __init__(self, state_size, hidden_size, normalizer, act_fn=RELU):
+    def __init__(self, state_size, hidden_size, act_fn="relu", device="cpu"):
         super().__init__()
         self.act_fn = getattr(F, act_fn)
         self.fc_1 = nn.Linear(state_size, hidden_size)
         self.fc_2 = nn.Linear(hidden_size, hidden_size)
-        self.fc_3 = nn.Linear(hidden_size, hidden_size)
         self.fc_4 = nn.Linear(hidden_size, 1)
-        self.normalizer = normalizer
+        self.to(device)
 
     def forward(self, state):
-        state = self.normalizer.normalize_states(state)
         reward = self.act_fn(self.fc_1(state))
         reward = self.act_fn(self.fc_2(reward))
-        reward = self.act_fn(self.fc_3(reward))
         reward = self.fc_4(reward).squeeze(dim=1)
         return reward
 
     def loss(self, states, rewards):
-        states = self.normalizer.normalize_states(states)
         r_hat = self(states)
         return F.mse_loss(r_hat, rewards)
-
-    def set_normalizer(self, normalizer):
-        self.normalizer = normalizer

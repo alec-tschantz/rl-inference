@@ -42,7 +42,7 @@ class Buffer(object):
         self._total_steps += 1
 
         if self.normalizer is not None:
-            self.normalizer.update(state, action, state_delta)
+            self.normalizer.update(state, action, state_delta, reward)
 
     def get_train_batches(self, batch_size):
         size = len(self)
@@ -81,6 +81,9 @@ class Buffer(object):
 
             yield states, actions, rewards, state_deltas
 
+    def set_normalizer(self, normalizer):
+        self.normalizer = normalizer
+
     def save_data(self, filepath):
         np.savez_compressed(
             filepath,
@@ -98,9 +101,6 @@ class Buffer(object):
         self.rewards = data["rewards"]
         self.state_deltas = data["state_deltas"]
         self._total_steps = int(data["total_steps"])
-
-    def set_normalizer(self, normalizer):
-        self.normalizer = normalizer
 
     def __len__(self):
         return min(self._total_steps, self.buffer_size)

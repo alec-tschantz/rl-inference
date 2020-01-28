@@ -7,28 +7,15 @@ from scipy.special import psi, gamma
 
 
 class InformationGain(object):
-    def __init__(self, model, expl_scale):
+    def __init__(self, model, expl_scale=1):
         self.model = model
         self.expl_scale = expl_scale
         self.info_gains_trial = []
-        self.alpha = 0.1
-
-    def get_stats(self):
-        info_gain_tensor = torch.stack(self.info_gains_trial)
-        info_gain_tensor = info_gain_tensor.view(-1) * self.expl_scale
-        stats = {
-            "max": info_gain_tensor.max().item(),
-            "mean": info_gain_tensor.mean().item(),
-            "min": info_gain_tensor.min().item(),
-            "std": info_gain_tensor.std().item(),
-        }
-        self.info_gains_trial = []
-        return stats
 
     def __call__(self, delta_means, delta_vars):
         """
-        delta_means (plan_horizon, ensemble_size, n_candidates, n_dim)
-        delta_vars (plan_horizon, ensemble_size, n_candidates, n_dim)
+        delta_means   (plan_horizon, ensemble_size, n_candidates, n_dim)
+        delta_vars    (plan_horizon, ensemble_size, n_candidates, n_dim)
         """
 
         plan_horizon = delta_means.size(0)
@@ -46,7 +33,7 @@ class InformationGain(object):
             ent_avg = self.entropy_of_average(delta_states[t])
             avg_ent = self.average_of_entropy(delta_vars[t])
             info_gains[t, :] = ent_avg - avg_ent
-        
+
         self.info_gains_trial.append(info_gains.sum(dim=0))
         return info_gains
 
@@ -60,13 +47,13 @@ class InformationGain(object):
         k = 3
 
         distances_yy = self.batched_cdist_l2(samples, samples)
-        y2, _ = torch.sort(distances_yy, dim=1)
+        y, _ = torch.sort(distances_yy, dim=1)
         v = self.volume_of_the_unit_ball(dims)
         h = (
             np.log(n_samples - 1)
             - psi(k)
             + np.log(v)
-            + dims * torch.sum(torch.log(y2[:, k - 1]), dim=1) / n_samples
+            + dims * torch.sum(torch.log(y[:, k - 1]), dim=1) / n_samples
             + 0.5
         )
         return h
@@ -94,3 +81,15 @@ class InformationGain(object):
             torch.log(2 * np.pi * np.e * torch.clamp(delta_vars, min=min_variance)),
             dim=len(delta_vars.size()) - 1,
         )
+
+    def get_stats(self):
+        info_gain_tensor = torch.stack(self.info_gains_trial)
+        info_gain_tensor = info_gain_tensor.view(-1) * self.expl_scale
+        stats = {
+            "max": info_gain_tensor.max().item(),
+            "mean": info_gain_tensor.mean().item(),
+            "min": info_gain_tensor.min().item(),
+            "std": info_gain_tensor.std().item(),
+        }
+        self.info_gains_trial = []
+        return stats

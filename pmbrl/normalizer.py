@@ -16,6 +16,11 @@ class Normalizer(object):
         self.state_delta_mean = None
         self.state_delta_sk = None
         self.state_delta_stdev = None
+        self.reward_mean = None
+        self.reward_sk = None
+        self.reward_stdev = None
+        self.min_reward = 1e6
+        self.max_reward = -1e6
         self.count = 0
 
     @staticmethod
@@ -28,7 +33,7 @@ class Normalizer(object):
         sk_new = sk_old + (addendum - mu_old) * (addendum - mu_new)
         return sk_new
 
-    def update(self, state, action, state_delta):
+    def update(self, state, action, state_delta, reward):
         self.count += 1
 
         if self.count == 1:
@@ -41,17 +46,23 @@ class Normalizer(object):
             self.state_delta_mean = state_delta.copy()
             self.state_delta_sk = np.zeros_like(state_delta)
             self.state_delta_stdev = np.zeros_like(state_delta)
+            self.reward_mean = reward
+            self.reward_sk = 0.0
+            self.reard_stdev = 0.0
+            self.update_reward_range(reward)
             return
 
         state_mean_old = self.state_mean.copy()
         action_mean_old = self.action_mean.copy()
         state_delta_mean_old = self.state_delta_mean.copy()
+        reward_mean_old = reward
 
         self.state_mean = self.update_mean(self.state_mean, state, self.count)
         self.action_mean = self.update_mean(self.action_mean, action, self.count)
         self.state_delta_mean = self.update_mean(
             self.state_delta_mean, state_delta, self.count
         )
+        self.reward_mean = self.update_mean(self.reward_mean, reward, self.count)
 
         self.state_sk = self.update_sk(
             self.state_sk, state_mean_old, self.state_mean, state
@@ -65,10 +76,15 @@ class Normalizer(object):
             self.state_delta_mean,
             state_delta,
         )
+        self.reward_sk = self.update_sk(
+            self.reward_sk, reward_mean_old, self.reward_mean, reward
+        )
 
         self.state_stdev = np.sqrt(self.state_sk / self.count)
         self.action_stdev = np.sqrt(self.action_sk / self.count)
         self.state_delta_stdev = np.sqrt(self.state_delta_sk / self.count)
+        self.reward_stdev = np.sqrt(self.reward_sk / self.count)
+        self.update_reward_range(reward)
 
     @staticmethod
     def setup_vars(x, mean, stdev):
@@ -118,3 +134,9 @@ class Normalizer(object):
             state_delta_vars, self.state_delta_mean, self.state_delta_stdev
         )
         return state_delta_vars / (torch.clamp(stdev, min=1e-8) ** 2)
+
+    def update_reward_range(self, reward):
+        if reward > self.max_reward:
+            self.max_reward = reward
+        if reward < self.min_reward:
+            self.min_reward = reward

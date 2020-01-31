@@ -1,13 +1,14 @@
 # pylint: disable=not-callable
 # pylint: disable=no-member
 
+from copy import deepcopy
+
 import torch
 import torch.nn as nn
 import numpy as np
 
-from copy import deepcopy
-
 from pmbrl import tools
+
 
 class Agent(object):
     def __init__(self, env, planner):
@@ -27,25 +28,29 @@ class Agent(object):
                     break
         return buffer
 
-    def run_episode(self, buffer=None, verbosity=False):
+    def run_episode(self, buffer=None, action_noise=None, log_every=None):
         total_reward = 0
         total_steps = 0
         done = False
-        infos = []
 
         with torch.no_grad():
             state = self.env.reset()
             while not done:
                 action = self.planner(state)
+                if action_noise is not None:
+                    action = self._add_action_noise(action, action_noise)
                 action = action.cpu().detach().numpy()
 
-                next_state, reward, done, info = self.env.step(action)
-                infos.append(info)
+                next_state, reward, done, _ = self.env.step(action)
                 total_reward += reward
                 total_steps += 1
 
-                if verbosity and total_steps % 20 == 0:
-                    tools.log("> Step {} [reward {:.2f}]".format(total_steps, total_reward))
+                if log_every is not None and total_steps % log_every == 0:
+                    tools.log(
+                        "> Episode step {} [reward {:.2f}]".format(
+                            total_steps, total_reward
+                        )
+                    )
 
                 if buffer is not None:
                     buffer.add(state, action, reward, next_state)
@@ -54,8 +59,9 @@ class Agent(object):
                     break
 
         self.env.close()
-        stats = self.planner.get_stats()
-        if buffer is not None:
-            return total_reward, total_steps, buffer, stats, infos
-        else:
-            return total_reward, total_steps, stats, infos
+        return total_reward, total_steps
+
+    def _add_action_noise(self, action, noise):
+        if noise is not None:
+            action = action + noise * torch.randn_like(action)
+        return action

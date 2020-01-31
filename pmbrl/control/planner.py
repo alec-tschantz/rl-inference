@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 
-from .measures import InformationGain
+from pmbrl.control.measures import InformationGain
 
 
 class Planner(nn.Module):
@@ -18,12 +18,13 @@ class Planner(nn.Module):
         optimisation_iters,
         n_candidates,
         top_candidates,
-        reward_prior=1.0,
         use_reward=True,
         use_exploration=True,
         use_mean=False,
+        use_kl_div=False,
         expl_scale=1.0,
         reward_scale=1.0,
+        reward_prior=1.0,
         device="cpu",
     ):
         super().__init__()
@@ -37,24 +38,28 @@ class Planner(nn.Module):
         self.n_candidates = n_candidates
         self.top_candidates = top_candidates
 
-        self.reward_prior = reward_prior
         self.use_reward = use_reward
         self.use_exploration = use_exploration
         self.use_mean = use_mean
+        self.use_kl_div = use_kl_div
         self.expl_scale = expl_scale
         self.reward_scale = reward_scale
+        self.reward_prior = reward_prior
+        self.device = device
+
+        self.prior = (
+            torch.ones((self.plan_horizon * self.ensemble_size * self.n_candidates ))
+            .float()
+            .to(self.device)
+        ) * self.reward_prior
 
         self.measure = InformationGain(self.ensemble, self.expl_scale)
-        self.mse_loss = torch.nn.MSELoss(reduction="none")
-        self.device = device
-        self.reward_stats = []
+        self.kl_loss = torch.nn.MSELoss(reduction="none")
         self.to(device)
 
     def forward(self, state):
         state = torch.from_numpy(state).float().to(self.device)
         state_size = state.size(0)
-        state = state.unsqueeze(dim=0).unsqueeze(dim=0)
-        state = state.repeat(self.ensemble_size, self.n_candidates, 1)
 
         action_mean = torch.zeros(self.plan_horizon, 1, self.action_size).to(
             self.device
@@ -63,7 +68,6 @@ class Planner(nn.Module):
             self.device
         )
 
-        prior = None
         for _ in range(self.optimisation_iters):
             actions = action_mean + action_std_dev * torch.randn(
                 self.plan_horizon,
@@ -81,38 +85,21 @@ class Planner(nn.Module):
 
             if self.use_reward:
                 states = states.view(-1, state_size)
-                reward_preds = self.reward_model(states)
+                rewards = self.reward_model(states)
 
-                if prior is None:
-                    prior = (
-                        torch.ones_like(reward_preds).float().to(self.device)
-                        * self.reward_prior
+                if self.use_kl_div:
+                    rewards = (
+                        -(self.kl_loss(rewards, self.prior) / 2.0)
+                        * self.reward_scale
                     )
 
-                kl_div = -(self.mse_loss(reward_preds, prior) / 2.0) * self.reward_scale
-
-                rewards = kl_div.view(
+                rewards = rewards.view(
                     self.plan_horizon, self.ensemble_size, self.n_candidates
                 )
-
                 rewards = rewards.mean(dim=1).sum(dim=0)
-                self.reward_stats.append(rewards)
                 returns += rewards
 
-            returns = torch.where(
-                torch.isnan(returns), torch.zeros_like(returns), returns
-            )
-
-            _, topk = returns.topk(
-                self.top_candidates, dim=0, largest=True, sorted=False
-            )
-            best_actions = actions[:, topk.view(-1)].reshape(
-                self.plan_horizon, self.top_candidates, self.action_size
-            )
-            action_mean, action_std_dev = (
-                best_actions.mean(dim=1, keepdim=True),
-                best_actions.std(dim=1, unbiased=False, keepdim=True),
-            )
+            action_mean, action_std_dev = self._fit_gaussian(actions, returns)
 
         return action_mean[0].squeeze(dim=0)
 
@@ -121,6 +108,9 @@ class Planner(nn.Module):
         states = [torch.empty(0)] * T
         delta_means = [torch.empty(0)] * T
         delta_vars = [torch.empty(0)] * T
+
+        current_state = current_state.unsqueeze(dim=0).unsqueeze(dim=0)
+        current_state = current_state.repeat(self.ensemble_size, self.n_candidates, 1)
         states[0] = current_state
 
         actions = actions.unsqueeze(0)
@@ -140,20 +130,14 @@ class Planner(nn.Module):
         delta_means = torch.stack(delta_means[1:], dim=0)
         return states, delta_vars, delta_means
 
-    def get_stats(self):
-        if self.use_exploration:
-            info_stats = self.measure.get_stats()
-        else:
-            info_stats = {}
-        reward_tensor = torch.stack(self.reward_stats)
-        reward_tensor = reward_tensor.view(-1)
-
-        reward_stats = {
-            "max": reward_tensor.max().item(),
-            "mean": reward_tensor.mean().item(),
-            "min": reward_tensor.min().item(),
-            "std": reward_tensor.std().item(),
-        }
-
-        self.reward_stats = []
-        return info_stats, reward_stats
+    def _fit_gaussian(self, actions, returns):
+        returns = torch.where(torch.isnan(returns), torch.zeros_like(returns), returns)
+        _, topk = returns.topk(self.top_candidates, dim=0, largest=True, sorted=False)
+        best_actions = actions[:, topk.view(-1)].reshape(
+            self.plan_horizon, self.top_candidates, self.action_size
+        )
+        action_mean, action_std_dev = (
+            best_actions.mean(dim=1, keepdim=True),
+            best_actions.std(dim=1, unbiased=False, keepdim=True),
+        )
+        return action_mean, action_std_dev

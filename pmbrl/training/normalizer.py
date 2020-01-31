@@ -48,7 +48,7 @@ class Normalizer(object):
             self.state_delta_stdev = np.zeros_like(state_delta)
             self.reward_mean = reward
             self.reward_sk = 0.0
-            self.reard_stdev = 0.0
+            self.reward_stdev = 0.0
             self.update_reward_range(reward)
             return
 

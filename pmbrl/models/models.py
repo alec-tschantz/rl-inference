@@ -12,30 +12,34 @@ def swish(x):
 
 
 class EnsembleDenseLayer(nn.Module):
-    def __init__(self, in_size, out_size, ensemble_size, non_linearity="swish"):
+    def __init__(self, in_size, out_size, ensemble_size, act_fn="swish"):
         super().__init__()
-
         weights = torch.zeros(ensemble_size, in_size, out_size).float()
         biases = torch.zeros(ensemble_size, 1, out_size).float()
 
         for weight in weights:
-            if non_linearity == "swish":
-                nn.init.xavier_uniform_(weight)
-            elif non_linearity == "linear":
-                nn.init.xavier_normal_(weight)
+            self._init_weight(weight, act_fn)
 
         self.weights = nn.Parameter(weights)
         self.biases = nn.Parameter(biases)
-
-        if non_linearity == "swish":
-            self.non_linearity = swish
-        elif non_linearity == "linear":
-            self.non_linearity = lambda x: x
+        self.act_fn = self._get_act_fn(act_fn)
 
     def forward(self, x):
         op = torch.baddbmm(self.biases, x, self.weights)
-        op = self.non_linearity(op)
+        op = self.act_fn(op)
         return op
+
+    def _init_weight(self, weight, act_fn):
+        if act_fn == "swish":
+            nn.init.xavier_uniform_(weight)
+        elif act_fn == "linear":
+            nn.init.xavier_normal_(weight)
+
+    def _get_act_fn(self, act_fn):
+        if act_fn == "swish":
+            return swish
+        elif act_fn == "linear":
+            return lambda x: x
 
 
 class EnsembleModel(nn.Module):
@@ -46,31 +50,74 @@ class EnsembleModel(nn.Module):
         hidden_size,
         ensemble_size,
         normalizer,
-        non_linearity="swish",
+        max_logvar=-1,
+        min_logvar=-5,
+        act_fn="swish",
         device="cpu",
     ):
         super().__init__()
 
         self.ensemble_size = ensemble_size
-        self.device = device
 
         self.fc_1 = EnsembleDenseLayer(
-            in_size, hidden_size, ensemble_size, non_linearity=non_linearity
+            in_size, hidden_size, ensemble_size, act_fn=act_fn
         )
         self.fc_2 = EnsembleDenseLayer(
-            hidden_size, hidden_size, ensemble_size, non_linearity=non_linearity
+            hidden_size, hidden_size, ensemble_size, act_fn=act_fn
         )
         self.fc_3 = EnsembleDenseLayer(
-            hidden_size, hidden_size, ensemble_size, non_linearity=non_linearity
+            hidden_size, hidden_size, ensemble_size, act_fn=act_fn
         )
         self.fc_4 = EnsembleDenseLayer(
-            hidden_size, out_size * 2, ensemble_size, non_linearity="linear"
+            hidden_size, out_size * 2, ensemble_size, act_fn="linear"
         )
 
         self.normalizer = normalizer
-        self.max_logvar = -1
-        self.min_logvar = -5
+        self.device = device
+
+        self.max_logvar = max_logvar
+        self.min_logvar = min_logvar
         self.to(device)
+
+    def forward(self, states, actions):
+        norm_states, norm_actions = self._pre_process_model_inputs(states, actions)
+        norm_delta_mean, norm_delta_var = self._propagate_network(
+            norm_states, norm_actions
+        )
+        delta_mean, delta_var = self._post_process_model_outputs(
+            norm_delta_mean, norm_delta_var
+        )
+        return delta_mean, delta_var
+
+    def sample(self, mean, var):
+        return Normal(mean, torch.sqrt(var)).sample()
+
+    def loss(self, states, actions, state_deltas):
+        states, actions = self._pre_process_model_inputs(states, actions)
+        delta_targets = self._pre_process_model_targets(state_deltas)
+        delta_mu, delta_var = self._propagate_network(states, actions)
+        loss = (delta_mu - delta_targets) ** 2 / delta_var + torch.log(delta_var)
+        loss = loss.mean(-1).mean(-1).sum()
+        return loss
+
+    def set_normalizer(self, normalizer):
+        self.normalizer = normalizer
+
+    def _propagate_network(self, states, actions):
+        inp = torch.cat((states, actions), dim=2)
+        op = self.fc_1(inp)
+        op = self.fc_2(op)
+        op = self.fc_3(op)
+        op = self.fc_4(op)
+
+        delta_mean, delta_logvar = torch.split(op, op.size(2) // 2, dim=2)
+        delta_logvar = torch.sigmoid(delta_logvar)
+        delta_logvar = (
+            self.min_logvar + (self.max_logvar - self.min_logvar) * delta_logvar
+        )
+        delta_var = torch.exp(delta_logvar)
+
+        return delta_mean, delta_var
 
     def _pre_process_model_inputs(self, states, actions):
         states = states.to(self.device)
@@ -89,47 +136,6 @@ class EnsembleModel(nn.Module):
         delta_var = self.normalizer.denormalize_state_delta_vars(delta_var)
         return delta_mean, delta_var
 
-    def _propagate_network(self, states, actions):
-        inp = torch.cat((states, actions), dim=2)
-        op = self.fc_1(inp)
-        op = self.fc_2(op)
-        op = self.fc_3(op)
-        op = self.fc_4(op)
-
-        delta_mean, delta_logvar = torch.split(op, op.size(2) // 2, dim=2)
-        delta_logvar = torch.sigmoid(delta_logvar)
-        delta_logvar = (
-            self.min_logvar + (self.max_logvar - self.min_logvar) * delta_logvar
-        )
-        delta_var = torch.exp(delta_logvar)
-
-        return delta_mean, delta_var
-
-    def forward(self, states, actions):
-        norm_states, norm_actions = self._pre_process_model_inputs(states, actions)
-        norm_delta_mean, norm_delta_var = self._propagate_network(
-            norm_states, norm_actions
-        )
-        delta_mean, delta_var = self._post_process_model_outputs(
-            norm_delta_mean, norm_delta_var
-        )
-
-        return delta_mean, delta_var
-
-    def sample(self, mean, var):
-        return Normal(mean, torch.sqrt(var)).sample()
-
-    def loss(self, states, actions, state_deltas):
-        states, actions = self._pre_process_model_inputs(states, actions)
-        delta_targets = self._pre_process_model_targets(state_deltas)
-        delta_mu, delta_var = self._propagate_network(states, actions)
-        loss = (delta_mu - delta_targets) ** 2 / delta_var + torch.log(delta_var)
-        loss = loss.mean(-1).mean(-1).sum()
-        return loss
-
-    def set_normalizer(self, normalizer):
-        self.normalizer = normalizer
-
 
 class RewardModel(nn.Module):
     def __init__(self, state_size, hidden_size, act_fn="relu", device="cpu"):
@@ -137,13 +143,13 @@ class RewardModel(nn.Module):
         self.act_fn = getattr(F, act_fn)
         self.fc_1 = nn.Linear(state_size, hidden_size)
         self.fc_2 = nn.Linear(hidden_size, hidden_size)
-        self.fc_4 = nn.Linear(hidden_size, 1)
+        self.fc_3 = nn.Linear(hidden_size, 1)
         self.to(device)
 
     def forward(self, state):
         reward = self.act_fn(self.fc_1(state))
         reward = self.act_fn(self.fc_2(reward))
-        reward = self.fc_4(reward).squeeze(dim=1)
+        reward = self.fc_3(reward).squeeze(dim=1)
         return reward
 
     def loss(self, states, rewards):

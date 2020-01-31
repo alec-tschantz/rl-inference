@@ -1,11 +1,11 @@
+import os
+
 import numpy as np
 
 from gym import utils
 from gym.envs.mujoco import mujoco_env
 
-import os
-
-from mujoco_py.generated import const  # nopep8
+from mujoco_py.generated import const  # pylint: disable=import-error
 
 
 def get_state_block(state):

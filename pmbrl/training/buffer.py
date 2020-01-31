@@ -31,18 +31,15 @@ class Buffer(object):
 
     def add(self, state, action, reward, next_state):
         idx = self._total_steps % self.buffer_size
-
         state_delta = next_state - state
 
         self.states[idx] = state
         self.actions[idx] = action
         self.rewards[idx] = reward
         self.state_deltas[idx] = state_delta
-
         self._total_steps += 1
 
-        if self.normalizer is not None:
-            self.normalizer.update(state, action, state_delta, reward)
+        self.normalizer.update(state, action, state_delta, reward)
 
     def get_train_batches(self, batch_size):
         size = len(self)

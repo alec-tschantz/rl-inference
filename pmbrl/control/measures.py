@@ -7,10 +7,9 @@ from scipy.special import psi, gamma
 
 
 class InformationGain(object):
-    def __init__(self, model, expl_scale=1):
+    def __init__(self, model, normalized=True):
         self.model = model
-        self.expl_scale = expl_scale
-        self.info_gains_trial = []
+        self.normalized = True
 
     def __call__(self, delta_means, delta_vars):
         """
@@ -21,10 +20,13 @@ class InformationGain(object):
         plan_horizon = delta_means.size(0)
         n_candidates = delta_means.size(2)
 
-        delta_means = self.model.normalizer.renormalize_state_delta_means(delta_means)
-        delta_vars = self.model.normalizer.renormalize_state_delta_vars(delta_vars)
-        delta_states = self.model.sample(delta_means, delta_vars)
+        if self.normalized:
+            delta_means = self.model.normalizer.renormalize_state_delta_means(
+                delta_means
+            )
+            delta_vars = self.model.normalizer.renormalize_state_delta_vars(delta_vars)
 
+        delta_states = self.model.sample(delta_means, delta_vars)
         info_gains = (
             torch.zeros(plan_horizon, n_candidates).float().to(delta_means.device)
         )
@@ -34,7 +36,6 @@ class InformationGain(object):
             avg_ent = self.average_of_entropy(delta_vars[t])
             info_gains[t, :] = ent_avg - avg_ent
 
-        self.info_gains_trial.append(info_gains.sum(dim=0))
         return info_gains
 
     def entropy_of_average(self, samples):
@@ -81,15 +82,3 @@ class InformationGain(object):
             torch.log(2 * np.pi * np.e * torch.clamp(delta_vars, min=min_variance)),
             dim=len(delta_vars.size()) - 1,
         )
-
-    def get_stats(self):
-        info_gain_tensor = torch.stack(self.info_gains_trial)
-        info_gain_tensor = info_gain_tensor.view(-1) * self.expl_scale
-        stats = {
-            "max": info_gain_tensor.max().item(),
-            "mean": info_gain_tensor.mean().item(),
-            "min": info_gain_tensor.min().item(),
-            "std": info_gain_tensor.std().item(),
-        }
-        self.info_gains_trial = []
-        return stats

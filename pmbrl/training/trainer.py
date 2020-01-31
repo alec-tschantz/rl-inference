@@ -3,7 +3,6 @@
 
 import torch
 
-
 class Trainer(object):
     def __init__(
         self,
@@ -34,9 +33,14 @@ class Trainer(object):
         message = "Training on {} data points"
         print(message.format(self.buffer.total_steps))
 
+        e_losses = []
+        r_losses = []
+        n_batches = []
         for epoch in range(1, self.n_train_epochs + 1):
-            e_losses = []
-            r_losses = []
+            e_losses.append([])
+            r_losses.append([])
+            n_batches.append(0)
+
             for (states, actions, rewards, deltas) in self.buffer.get_train_batches(
                 self.batch_size
             ):
@@ -46,17 +50,27 @@ class Trainer(object):
                 self.optim.zero_grad()
                 e_loss = self.ensemble.loss(states, actions, deltas)
                 r_loss = self.reward_model.loss(states, rewards)
-                e_losses.append(e_loss.item())
-                r_losses.append(r_loss.item())
                 (e_loss + r_loss).backward()
                 torch.nn.utils.clip_grad_norm_(
                     self.params, self.grad_clip_norm, norm_type=2
                 )
                 self.optim.step()
 
-            if self.log_every is not None and epoch % self.log_every == 0:
-                message = "> Train epoch {} [ensemble {:.2f} | reward {:.2f}]"
-                print(message.format(epoch, e_loss.item(), r_loss.item()))
+                e_losses[epoch - 1].append(e_loss.item())
+                r_losses[epoch - 1].append(r_loss.item())
+                n_batches[epoch - 1] += 1
 
-        message = "Summed losses: [ensemble {:.2f} | reward {:.2f}]"
-        print(message.format(sum(e_losses), sum(r_losses)))
+            if self.log_every is not None and epoch % self.log_every == 0:
+                avg_e_loss = self._get_avg_loss(e_losses, n_batches, epoch)
+                avg_r_loss = self._get_avg_loss(r_losses, n_batches, epoch)
+                message = "> Train epoch {} [ensemble {:.2f} | reward {:.2f}]"
+                print(message.format(epoch, avg_e_loss, avg_r_loss))
+
+        return (
+            self._get_avg_loss(e_losses, n_batches, epoch),
+            self._get_avg_loss(r_losses, n_batches, epoch),
+        )
+
+    def _get_avg_loss(self, losses, n_batches, epoch):
+        epoch_loss = [sum(loss) / n_batch for loss, n_batch in zip(losses, n_batches)]
+        return sum(epoch_loss) / epoch

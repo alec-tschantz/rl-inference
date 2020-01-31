@@ -4,7 +4,9 @@
 """ __tasks__: seeds, logging, recoding """
 
 import argparse
+
 import torch
+from tqdm import tqdm
 
 from pmbrl.envs import GymEnv
 from pmbrl.training import Normalizer, Buffer, Trainer
@@ -19,6 +21,8 @@ def main(args):
     print("\n=== Loading experiment ===")
     print("Using [{}]".format(DEVICE))
     print(args)
+
+    logger = tools.Logger(args.logdir, args.exp_name)
 
     env = GymEnv(args.env_name, args.max_episode_len, action_repeat=args.action_repeat)
     action_size = env.action_space.shape[0]
@@ -74,14 +78,28 @@ def main(args):
     agent = Agent(env, planner)
 
     agent.get_seed_episodes(buffer, args.n_seed_episodes)
-    msg = "Collected [{} episodes] [{} frames]"
+    msg = "\nCollected [{} episodes] [{} frames]"
     print(msg.format(args.n_seed_episodes, buffer.total_steps))
 
-    for episode in range(args.n_episodes):
-        print("\n === Episode {} ===".format(episode))
-        trainer.train()
-        reward, steps = agent.run_episode(buffer)
-        print("Reward {:.2f} | Steps {:.2f}]".format(reward, steps))
+    for episode in tqdm(range(args.n_episodes)):
+        print("\n\n=== Episode {} ===".format(episode))
+
+        e_loss, r_loss = trainer.train()
+        logger.log_scalar("Loss/Ensemble", e_loss, episode)
+        logger.log_scalar("Loss/Reward", r_loss, episode)
+
+        reward, steps, trajectory, actions = agent.run_episode(
+            buffer, action_noise=args.action_noise, log_every=args.log_every
+        )
+        logger.log_scalar("Reward", reward, episode)
+        logger.log_scalar("Steps", steps, episode)
+
+        pred_states, pred_delta_vars, traj = tools.evaluate_accuracy(
+            ensemble, trajectory, actions, args.eval_steps, DEVICE
+        )
+        fig = tools.plot_trajectory_predictions(pred_states, pred_delta_vars, traj)
+        logger.log_figure("Predictions/Trajectory", fig, episode)
+    logger.close()
 
 
 if __name__ == "__main__":

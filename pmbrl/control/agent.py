@@ -31,6 +31,8 @@ class Agent(object):
     def run_episode(self, buffer=None, action_noise=None, log_every=None):
         total_reward = 0
         total_steps = 0
+        trajectory = []
+        actions = []
         done = False
 
         with torch.no_grad():
@@ -41,12 +43,15 @@ class Agent(object):
                     action = self._add_action_noise(action, action_noise)
                 action = action.cpu().detach().numpy()
 
+                trajectory.append(state)
+                actions.append(action)
+
                 next_state, reward, done, _ = self.env.step(action)
                 total_reward += reward
                 total_steps += 1
 
                 if log_every is not None and total_steps % log_every == 0:
-                    tools.log(
+                    print(
                         "> Episode step {} [reward {:.2f}]".format(
                             total_steps, total_reward
                         )
@@ -59,7 +64,9 @@ class Agent(object):
                     break
 
         self.env.close()
-        return total_reward, total_steps
+        trajectory = np.vstack(trajectory)
+        actions = np.vstack(actions)
+        return total_reward, total_steps, trajectory, actions
 
     def _add_action_noise(self, action, noise):
         if noise is not None:

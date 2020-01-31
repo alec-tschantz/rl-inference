@@ -1,4 +1,4 @@
-# Exploration from exploitation using warped generative models
+# Warped generative models
 
 Repository for `ICML` 2020 submission
 

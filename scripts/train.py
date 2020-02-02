@@ -1,11 +1,15 @@
 # pylint: disable=not-callable
 # pylint: disable=no-member
 
+import sys
+import pathlib
 import argparse
 
 import torch
 import numpy as np
 from tqdm import tqdm
+
+sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from pmbrl.envs import GymEnv
 from pmbrl.training import Normalizer, Buffer, Trainer
@@ -17,7 +21,7 @@ DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 
 
 def main(args):
-    logger = tools.Logger(args.logdir, args.experiment_id, log_every=args.log_every)
+    logger = tools.Logger(args.logdir, args.seed, log_every=args.log_every)
     logger.log("\n=== Loading experiment [{}] ===".format(DEVICE))
     logger.log(args)
 
@@ -106,16 +110,17 @@ def main(args):
         logger.log_scalar("Evaluation/Reward", reward, episode)
         logger.log_scalar("Evaluation/Steps", steps, episode)
 
-        pred_states, pred_delta_vars, traj = tools.evaluate_trajectory(
-            ensemble,
-            trajectory,
-            actions,
-            args.traj_eval_steps,
-            device=DEVICE,
-            rollout_delta_clamp=args.rollout_delta_clamp,
-        )
-        fig = tools.plot_trajectory_evaluation(pred_states, pred_delta_vars, traj)
-        logger.log_figure("Predictions/Trajectory", fig, episode)
+        if args.plan_trajectory:
+            pred_states, pred_delta_vars, traj = tools.evaluate_trajectory(
+                ensemble,
+                trajectory,
+                actions,
+                args.traj_eval_steps,
+                device=DEVICE,
+                rollout_delta_clamp=args.rollout_delta_clamp,
+            )
+            fig = tools.plot_trajectory_evaluation(pred_states, pred_delta_vars, traj)
+            logger.log_figure("Predictions/Trajectory", fig, episode)
 
     logger.close()
 

@@ -5,12 +5,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 class Logger(object):
-    def __init__(self, logdir="log", experiment_id=None, log_every=20):
+    def __init__(self, logdir="log", seed=None, log_every=20):
         self.log_every = log_every
-        if experiment_id is None:
-            self.path = logdir
-        else:
-            self.path = logdir + "/" + experiment_id
+        self.path = logdir + "/" + str(seed)
         self.writer = SummaryWriter(self.path)
 
         self.outfile = self.path + "/out.txt"
@@ -22,7 +19,8 @@ class Logger(object):
 
     def log(self, string):
         f = open(self.outfile, "a")
-        f.write("\n" + string)
+        f.write("\n")
+        f.write(str(string))
         f.close()
         print(string)
 

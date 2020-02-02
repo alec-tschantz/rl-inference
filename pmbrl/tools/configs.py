@@ -4,6 +4,8 @@ import pprint
 def get_config(args):
     if args.config_name == "mountain_car":
         config = MountainCarConfig()
+    elif args.config_name == "cup_catch":
+        config = CupCatchConfig()
     elif args.config_name == "debug":
         config = DebugConfig()
     else:
@@ -18,8 +20,9 @@ class Config(object):
     def __init__(self):
         self.logdir = "logs"
         self.seed = 0
-        self.log_every = 5
+        self.log_every = 20
         self.traj_eval_steps = 12
+        self.plot_trajectory = True
 
         self.env_name = None
         self.max_episode_len = 500
@@ -68,10 +71,11 @@ class Config(object):
 class DebugConfig(Config):
     def __init__(self):
         super().__init__()
+        self.log_every = 5
         self.env_name = "Pendulum-v0"
         self.max_episode_len = 100
 
-        self.ensemble_size = 1
+        self.ensemble_size = 3
         self.hidden_size = 100
 
         self.n_episodes = 5
@@ -88,10 +92,11 @@ class DebugConfig(Config):
 class MountainCarConfig(Config):
     def __init__(self):
         super().__init__()
-        self.logdir = "logs"
+        self.logdir = "mountain_car"
         self.seed = 0
-        self.log_every = 5
+        self.log_every = 20
         self.traj_eval_steps = 20
+        self.plot_trajectory = False
 
         self.env_name = "SparseMountainCar"
         self.max_episode_len = 500
@@ -108,12 +113,42 @@ class MountainCarConfig(Config):
         self.n_seed_episodes = 1
         self.n_train_epochs = 5
         self.batch_size = 32
-        self.signal_noise = 0.02
 
         self.plan_horizon = 20
-        self.optimisation_iters = 5
-        self.n_candidates = 500
-        self.top_candidates = 50
+        self.optimisation_iters = 10
+        self.n_candidates = 1000
+        self.top_candidates = 100
 
-        self.use_kl_div = False
         self.expl_scale = 0.1
+
+
+class CupCatchConfig(Config):
+    def __init__(self):
+        super().__init__()
+        self.logdir = "catch"
+        self.seed = 0
+        self.log_every = 50
+        self.traj_eval_steps = 12
+        self.plot_trajectory = False
+
+        self.env_name = "DeepMindCatch"
+        self.max_episode_len = 1000
+        self.action_repeat = 4
+
+        self.ensemble_size = 10
+        self.hidden_size = 200
+        self.max_logvar = -1
+        self.min_logvar = -5
+        self.rollout_delta_clamp = 20
+
+        self.n_episodes = 50
+        self.n_seed_episodes = 1
+        self.n_train_epochs = 5
+
+        self.plan_horizon = 12
+        self.optimisation_iters = 10
+        self.n_candidates = 1000
+        self.top_candidates = 100
+
+        self.use_reward = True
+        self.use_exploration = True

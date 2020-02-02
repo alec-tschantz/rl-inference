@@ -12,6 +12,7 @@ class Buffer(object):
         action_size,
         ensemble_size,
         normalizer,
+        signal_noise=None,
         buffer_size=10 ** 6,
         device="cpu",
     ):
@@ -19,6 +20,7 @@ class Buffer(object):
         self.action_size = action_size
         self.ensemble_size = ensemble_size
         self.buffer_size = buffer_size
+        self.signal_noise = signal_noise
         self.device = device
 
         self.states = np.zeros((buffer_size, state_size))
@@ -68,6 +70,9 @@ class Buffer(object):
             actions = torch.from_numpy(actions).float().to(self.device)
             rewards = torch.from_numpy(rewards).float().to(self.device)
             state_deltas = torch.from_numpy(state_deltas).float().to(self.device)
+
+            if self.signal_noise is not None:
+                states = states + self.signal_noise * torch.randn_like(states)
 
             states = states.reshape(self.ensemble_size, batch_size, self.state_size)
             actions = actions.reshape(self.ensemble_size, batch_size, self.action_size)

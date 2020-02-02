@@ -26,12 +26,22 @@ def main(args):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(args.seed)
 
-    env = GymEnv(args.env_name, args.max_episode_len, action_repeat=args.action_repeat, seed=args.seed)
+    env = GymEnv(
+        args.env_name,
+        args.max_episode_len,
+        action_repeat=args.action_repeat,
+        seed=args.seed,
+    )
     action_size = env.action_space.shape[0]
     state_size = env.observation_space.shape[0]
     normalizer = Normalizer()
     buffer = Buffer(
-        state_size, action_size, args.ensemble_size, normalizer, device=DEVICE
+        state_size,
+        action_size,
+        args.ensemble_size,
+        normalizer,
+        signal_noise=args.signal_noise,
+        device=DEVICE,
     )
 
     ensemble = EnsembleModel(
@@ -114,7 +124,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_name", type=str, default="mountain_car")
     parser.add_argument("--logdir", type=str, default="logs")
-    parser.add_argument("--experiment_id", type=str, default="test")
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     config = tools.get_config(args)
     main(config)

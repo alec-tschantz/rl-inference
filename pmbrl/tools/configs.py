@@ -1,5 +1,6 @@
 import pprint
 
+
 def get_config(args):
     if args.config_name == "mountain_car":
         config = MountainCarConfig()
@@ -35,6 +36,7 @@ class Config(object):
         self.n_episodes = 10
         self.n_seed_episodes = 1
         self.n_train_epochs = 50
+        self.signal_noise = None
         self.batch_size = 50
         self.learning_rate = 1e-3
         self.epsilon = 1e-4
@@ -89,7 +91,7 @@ class MountainCarConfig(Config):
         self.logdir = "logs"
         self.seed = 0
         self.log_every = 5
-        self.traj_eval_steps = 12
+        self.traj_eval_steps = 20
 
         self.env_name = "SparseMountainCar"
         self.max_episode_len = 500
@@ -106,6 +108,7 @@ class MountainCarConfig(Config):
         self.n_seed_episodes = 1
         self.n_train_epochs = 5
         self.batch_size = 32
+        self.signal_noise = 0.02
 
         self.plan_horizon = 20
         self.optimisation_iters = 5
@@ -114,8 +117,3 @@ class MountainCarConfig(Config):
 
         self.use_kl_div = False
         self.expl_scale = 0.1
-
-
-if __name__ == "__main__":
-    args = MountainCarConfig()
-    print(args)

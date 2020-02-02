@@ -11,9 +11,10 @@ from pmbrl import tools
 
 
 class Agent(object):
-    def __init__(self, env, planner):
+    def __init__(self, env, planner, logger=None):
         self.env = env
         self.planner = planner
+        self.logger = logger
 
     def get_seed_episodes(self, buffer, n_episodes):
         for _ in range(n_episodes):
@@ -28,7 +29,8 @@ class Agent(object):
                     break
         return buffer
 
-    def run_episode(self, buffer=None, action_noise=None, log_every=None):
+    def run_episode(self, buffer=None, action_noise=None):
+        self.logger.log("=== Collecting data ===")
         total_reward = 0
         total_steps = 0
         trajectory = []
@@ -50,9 +52,9 @@ class Agent(object):
                 total_reward += reward
                 total_steps += 1
 
-                if log_every is not None and total_steps % log_every == 0:
-                    print(
-                        "> Episode step {} [reward {:.2f}]".format(
+                if self.logger is not None and total_steps % self.logger.log_every == 0:
+                    self.logger.log(
+                        "> Step {} [reward {:.2f}]".format(
                             total_steps, total_reward
                         )
                     )

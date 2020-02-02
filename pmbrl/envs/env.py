@@ -1,5 +1,5 @@
 import gym
-
+import roboschool
 
 SPARSE_MOUNTAIN_CAR = "SparseMountainCar"
 SPARSE_CARTPOLE_SWINGUP = "SparseCartpoleSwingup"

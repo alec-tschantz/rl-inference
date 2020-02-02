@@ -3,6 +3,7 @@
 
 import torch
 
+
 class Trainer(object):
     def __init__(
         self,
@@ -14,7 +15,7 @@ class Trainer(object):
         learning_rate,
         epsilon,
         grad_clip_norm,
-        log_every=None,
+        logger=None,
     ):
         self.ensemble = ensemble
         self.reward_model = reward_model
@@ -24,14 +25,14 @@ class Trainer(object):
         self.learning_rate = learning_rate
         self.epsilon = epsilon
         self.grad_clip_norm = grad_clip_norm
-        self.log_every = log_every
+        self.logger = logger
 
         self.params = list(ensemble.parameters()) + list(reward_model.parameters())
         self.optim = torch.optim.Adam(self.params, lr=learning_rate, eps=epsilon)
 
     def train(self):
-        message = "Training on {} data points"
-        print(message.format(self.buffer.total_steps))
+        msg = "Training on {} data points"
+        self.logger.log(msg.format(self.buffer.total_steps))
 
         e_losses = []
         r_losses = []
@@ -60,11 +61,11 @@ class Trainer(object):
                 r_losses[epoch - 1].append(r_loss.item())
                 n_batches[epoch - 1] += 1
 
-            if self.log_every is not None and epoch % self.log_every == 0:
+            if self.logger is not None and epoch % self.logger.log_every == 0:
                 avg_e_loss = self._get_avg_loss(e_losses, n_batches, epoch)
                 avg_r_loss = self._get_avg_loss(r_losses, n_batches, epoch)
                 message = "> Train epoch {} [ensemble {:.2f} | reward {:.2f}]"
-                print(message.format(epoch, avg_e_loss, avg_r_loss))
+                self.logger.log(message.format(epoch, avg_e_loss, avg_r_loss))
 
         return (
             self._get_avg_loss(e_losses, n_batches, epoch),

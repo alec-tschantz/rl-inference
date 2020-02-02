@@ -25,6 +25,7 @@ class Planner(nn.Module):
         expl_scale=1.0,
         reward_scale=1.0,
         reward_prior=1.0,
+        rollout_delta_clamp=None,
         device="cpu",
     ):
         super().__init__()
@@ -45,10 +46,11 @@ class Planner(nn.Module):
         self.expl_scale = expl_scale
         self.reward_scale = reward_scale
         self.reward_prior = reward_prior
+        self.rollout_delta_clamp = rollout_delta_clamp
         self.device = device
 
         self.prior = (
-            torch.ones((self.plan_horizon * self.ensemble_size * self.n_candidates ))
+            torch.ones((self.plan_horizon * self.ensemble_size * self.n_candidates))
             .float()
             .to(self.device)
         ) * self.reward_prior
@@ -67,7 +69,6 @@ class Planner(nn.Module):
         action_std_dev = torch.ones(self.plan_horizon, 1, self.action_size).to(
             self.device
         )
-
         for _ in range(self.optimisation_iters):
             actions = action_mean + action_std_dev * torch.randn(
                 self.plan_horizon,
@@ -89,8 +90,7 @@ class Planner(nn.Module):
 
                 if self.use_kl_div:
                     rewards = (
-                        -(self.kl_loss(rewards, self.prior) / 2.0)
-                        * self.reward_scale
+                        -(self.kl_loss(rewards, self.prior) / 2.0) * self.reward_scale
                     )
 
                 rewards = rewards.view(
@@ -118,8 +118,13 @@ class Planner(nn.Module):
 
         for t in range(self.plan_horizon):
             delta_mean, delta_var = self.ensemble(states[t], actions[t])
+            if self.rollout_delta_clamp is not None:
+                delta_mean = delta_mean.clamp(
+                    -self.rollout_delta_clamp,  # pylint: disable=invalid-unary-operand-type
+                    self.rollout_delta_clamp,
+                )
             if self.use_mean:
-                states[t + 1] = states[t] + self.ensemble.sample(delta_mean, delta_var)
+                states[t + 1] = states[t] + delta_mean
             else:
                 states[t + 1] = states[t] + self.ensemble.sample(delta_mean, delta_var)
             delta_means[t + 1] = delta_mean

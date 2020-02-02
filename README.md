@@ -1,4 +1,4 @@
-# Warped generative models
+# Warped Generative Models
 
 Repository for `ICML` 2020 submission
 
@@ -7,9 +7,10 @@ Repository for `ICML` 2020 submission
 - `numpy`
 - `scipy`
 - `torch`
-- `tqdm`
 - `gym`
+- `tqdm`
+- `matplotlib` _optional_
 - `mujoco_py` _optional_
 - `dm_control` _optional_
 - `roboschool` _optional_
-- `tensorboard` _optional_
+- `tensorboard` _optional_ 

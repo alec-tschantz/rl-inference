@@ -5,7 +5,9 @@ import torch
 import numpy as np
 
 
-def evaluate_accuracy(ensemble, trajectory, actions, steps, device):
+def evaluate_trajectory(
+    ensemble, trajectory, actions, steps, device, rollout_delta_clamp=None
+):
     trajectory = torch.from_numpy(trajectory).float().to(device)
     actions = torch.from_numpy(actions).float().to(device)
 
@@ -28,6 +30,11 @@ def evaluate_accuracy(ensemble, trajectory, actions, steps, device):
         action = actions[t].unsqueeze(0).unsqueeze(0)
         action = action.repeat(ensemble.ensemble_size, 1, 1)
         delta_mean, delta_var = ensemble(state, action)
+        if rollout_delta_clamp is not None:
+            delta_mean = delta_mean.clamp(
+                -rollout_delta_clamp,  # pylint: disable=invalid-unary-operand-type
+                rollout_delta_clamp,
+            )
         state = state + ensemble.sample(delta_mean, delta_var)
         pred_states.append(state)
         pred_delta_vars.append(delta_var)

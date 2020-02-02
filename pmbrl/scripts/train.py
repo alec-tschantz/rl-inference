@@ -4,6 +4,7 @@
 import argparse
 
 import torch
+import numpy as np
 from tqdm import tqdm
 
 from pmbrl.envs import GymEnv
@@ -16,10 +17,16 @@ DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 
 
 def main(args):
-    print("\n=== Loading experiment [{}] ===".format(DEVICE))
     logger = tools.Logger(args.logdir, args.experiment_id, log_every=args.log_every)
+    logger.log("\n=== Loading experiment [{}] ===".format(DEVICE))
+    logger.log(args)
 
-    env = GymEnv(args.env_name, args.max_episode_len, action_repeat=args.action_repeat)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(args.seed)
+
+    env = GymEnv(args.env_name, args.max_episode_len, action_repeat=args.action_repeat, seed=args.seed)
     action_size = env.action_space.shape[0]
     state_size = env.observation_space.shape[0]
     normalizer = Normalizer()
@@ -101,3 +108,13 @@ def main(args):
         logger.log_figure("Predictions/Trajectory", fig, episode)
 
     logger.close()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config_name", type=str, default="mountain_car")
+    parser.add_argument("--logdir", type=str, default="logs")
+    parser.add_argument("--experiment_id", type=str, default="test")
+    args = parser.parse_args()
+    config = tools.get_config(args)
+    main(config)

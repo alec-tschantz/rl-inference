@@ -13,7 +13,7 @@ Repository for `ICML` 2020 submission
 - `dm_control` _optional_
 - `roboschool` _optional_
 
-### Environments
+### Environments
 
 - `SparseMountainCar`: run using the `train_base` script with the `mountain_car` config
 - `SparseCartpoleSwingup`: run using the `train_base` script with the `cartpole` config

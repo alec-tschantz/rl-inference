@@ -3,12 +3,10 @@ import roboschool
 
 SPARSE_MOUNTAIN_CAR = "SparseMountainCar"
 SPARSE_CARTPOLE_SWINGUP = "SparseCartpoleSwingup"
-SPARSE_HALF_CHEETAH = "SparseHalfCheetah"
-SPARSE_ANT = "SparseAnt"
-DM_CARTPOLE = "DeepMindCartpole"
-DM_PENDULUM = "DeepMindPendulum"
+SPARSE_HALF_CHEETAH_RUN = "SparseHalfCheetahRun"
+SPARSE_HALF_CHEETAH_FLIP = "SparseHalfCheetahFlip"
+SPARSE_ANT_MAZE = "SparseAntMaze"
 DM_CATCH = "DeepMindCatch"
-DM_CHEETAH = "DeepMindCheetah"
 
 
 class GymEnv(object):
@@ -61,42 +59,32 @@ class GymEnv(object):
             from pmbrl.envs.envs.mountain_car import SparseMountainCarEnv
 
             return SparseMountainCarEnv()
+
         elif env_name == SPARSE_CARTPOLE_SWINGUP:
             from pmbrl.envs.envs.cartpole import SparseCartpoleSwingupEnv
 
             return SparseCartpoleSwingupEnv()
-        elif env_name == SPARSE_HALF_CHEETAH:
-            from pmbrl.envs.envs.half_cheetah import SparseHalfCheetahEnv
 
-            return SparseHalfCheetahEnv()
-        elif env_name == SPARSE_ANT:
+        elif env_name == SPARSE_HALF_CHEETAH_RUN:
+            from pmbrl.envs.envs.half_cheetah_run import SparseHalfCheetahRunEnv
+
+            return SparseHalfCheetahRunEnv()
+
+        elif env_name == SPARSE_HALF_CHEETAH_FLIP:
+            from pmbrl.envs.envs.half_cheetah_flip import SparseHalfCheetahFlipEnv
+
+            return SparseHalfCheetahFlipEnv()
+
+        elif env_name == SPARSE_ANT_MAZE:
             from pmbrl.envs.envs.ant import SparseAntEnv
 
             return SparseAntEnv()
-        elif env_name == DM_CARTPOLE:
-            from pmbrl.envs.dm_wrapper import DeepMindWrapper
 
-            domain = "cartpole"
-            task = "swingup_sparse"
-            return DeepMindWrapper(domain=domain, task=task)
-        elif env_name == DM_PENDULUM:
-            from pmbrl.envs.dm_wrapper import DeepMindWrapper
-
-            domain = "pendulum"
-            task = "swingup"
-            return DeepMindWrapper(domain=domain, task=task)
         elif env_name == DM_CATCH:
             from pmbrl.envs.dm_wrapper import DeepMindWrapper
 
             domain = "ball_in_cup"
             task = "catch"
             return DeepMindWrapper(domain=domain, task=task)
-        elif env_name == DM_CHEETAH:
-            from pmbrl.envs.dm_wrapper import DeepMindWrapper
-
-            domain = "cheetah"
-            task = "run"
-            return DeepMindWrapper(domain=domain, task=task)
-
         else:
             return gym.make(env_name)

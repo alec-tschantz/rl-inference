@@ -20,12 +20,15 @@ class Planner(nn.Module):
         top_candidates,
         use_reward=True,
         use_exploration=True,
+        use_reward_ensemble=False,
         use_mean=False,
         use_kl_div=False,
+        use_normalized=True,
         expl_scale=1.0,
         reward_scale=1.0,
         reward_prior=1.0,
         rollout_clamp=None,
+        log_stats=False,
         device="cpu",
     ):
         super().__init__()
@@ -41,12 +44,15 @@ class Planner(nn.Module):
 
         self.use_reward = use_reward
         self.use_exploration = use_exploration
+        self.use_reward_ensemble = use_reward_ensemble
         self.use_mean = use_mean
         self.use_kl_div = use_kl_div
+        self.use_normalized = use_normalized
         self.expl_scale = expl_scale
         self.reward_scale = reward_scale
         self.reward_prior = reward_prior
         self.rollout_clamp = rollout_clamp
+        self.log_stats = log_stats
         self.device = device
 
         self.prior = (
@@ -55,8 +61,10 @@ class Planner(nn.Module):
             .to(self.device)
         ) * self.reward_prior
 
-        self.measure = InformationGain(self.ensemble, self.expl_scale)
+        self.measure = InformationGain(self.ensemble, normalized=use_normalized)
         self.kl_loss = torch.nn.MSELoss(reduction="none")
+        self.rewards_trial = []
+        self.bonuses_trial = []
         self.to(device)
 
     def forward(self, state):
@@ -83,9 +91,17 @@ class Planner(nn.Module):
                 expl_bonus = self.measure(delta_means, delta_vars) * self.expl_scale
                 expl_bonus = expl_bonus.sum(dim=0)
                 returns += expl_bonus
+                if self.log_stats:
+                    self.bonuses_trial.append(expl_bonus)
 
             if self.use_reward:
-                states = states.view(-1, state_size)
+                if self.use_reward_ensemble:
+                    states = states.permute(1, 0, 2, 3)
+                    states = states.contiguous().view(
+                        self.ensemble_size, -1, state_size
+                    )
+                else:
+                    states = states.view(-1, state_size)
                 rewards = self.reward_model(states)
 
                 if self.use_kl_div:
@@ -100,6 +116,9 @@ class Planner(nn.Module):
                 )
                 rewards = rewards.mean(dim=1).sum(dim=0)
                 returns += rewards
+
+                if self.log_stats:
+                    self.rewards_trial.append(rewards)
 
             action_mean, action_std_dev = self._fit_gaussian(actions, returns)
 
@@ -148,3 +167,32 @@ class Planner(nn.Module):
             best_actions.std(dim=1, unbiased=False, keepdim=True),
         )
         return action_mean, action_std_dev
+
+    def return_stats(self):
+        if self.log_stats:
+            if self.use_exploration:
+                info_stats = self._create_stats(self.bonuses_trial)
+            else:
+                info_stats = {"max": 0, "min": 0, "mean": 0, "std": 0}
+            if self.use_reward:
+                reward_stats = self._create_stats(self.rewards_trial)
+            else:
+                reward_stats = {"max": 0, "min": 0, "mean": 0, "std": 0}
+        else:
+            reward_stats = {"max": 0, "min": 0, "mean": 0, "std": 0}
+            info_stats = {"max": 0, "min": 0, "mean": 0, "std": 0}
+        self.rewards_trial = []
+        self.bonuses_trial = []
+        return reward_stats, info_stats
+
+    def _create_stats(self, arr):
+        tensor = torch.stack(arr)
+        tensor = tensor.view(-1)
+
+        return {
+            "max": tensor.max().item(),
+            "min": tensor.min().item(),
+            "mean": tensor.mean().item(),
+            "std": tensor.std().item(),
+        }
+

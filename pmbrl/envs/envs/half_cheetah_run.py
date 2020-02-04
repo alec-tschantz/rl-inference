@@ -6,7 +6,7 @@ from gym import utils
 from gym.envs.mujoco import mujoco_env
 
 
-class SparseHalfCheetahEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+class SparseHalfCheetahRunEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         self.prev_x_torso = None
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -17,23 +17,31 @@ class SparseHalfCheetahEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.prev_x_torso = np.copy(self.get_body_com("torso")[0:1])
         self.do_simulation(action, self.frame_skip)
         obs = self._get_obs()
-        x_pos = self.get_body_com("torso")[0]
-        if x_pos <= 5.0:
-            reward = 0.0
-        else:
-            reward = 1.0
+        reward = obs[0] - 0.1 * np.sum((action ** 2))
         done = False
-        return obs, reward, done, {"x_pos": x_pos}
+        return obs, reward, done, {}
 
     def _get_obs(self):
-        """ https://github.com/openai/vime/blob/master/envs/half_cheetah_env_x.py """
-        return np.concatenate(
+        z_position = self.sim.data.qpos.flat[1:2]
+        y_rotation = self.sim.data.qpos.flat[2:3]
+        other_positions = self.sim.data.qpos.flat[3:]
+        velocities = self.sim.data.qvel.flat
+
+        x_torso = np.copy(self.get_body_com("torso")[0:1])
+        average_velocity = (x_torso - self.prev_x_torso) / self.dt
+        y_rotation_sin, y_rotation_cos = np.sin(y_rotation), np.cos(y_rotation)
+
+        obs = np.concatenate(
             [
-                self.sim.data.qpos.flat[1:],
-                self.sim.data.qvel.flat,
-                self.get_body_com("torso").flat,
+                average_velocity,
+                z_position,
+                y_rotation_sin,
+                y_rotation_cos,
+                other_positions,
+                velocities,
             ]
         )
+        return obs
 
     def reset_model(self):
         qpos = self.init_qpos + self.np_random.uniform(

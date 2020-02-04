@@ -64,7 +64,8 @@ class Agent(object):
         self.env.close()
         trajectory = np.vstack(trajectory)
         actions = np.vstack(actions)
-        return total_reward, total_steps, trajectory, actions
+        stats = self.planner.return_stats()
+        return total_reward, total_steps, trajectory, actions, stats
 
     def _add_action_noise(self, action, noise):
         if noise is not None:

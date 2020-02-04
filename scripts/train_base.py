@@ -59,7 +59,13 @@ def main(args):
         act_fn=args.act_fn,
         device=DEVICE,
     )
-    reward_model = RewardModel(state_size, args.hidden_size, device=DEVICE)
+    reward_model = RewardModel(
+        state_size,
+        args.hidden_size,
+        use_reward_ensemble=args.use_reward_ensemble,
+        ensemble_size=args.ensemble_size,
+        device=DEVICE,
+    )
     trainer = Trainer(
         ensemble,
         reward_model,
@@ -83,12 +89,15 @@ def main(args):
         top_candidates=args.top_candidates,
         use_reward=args.use_reward,
         use_exploration=args.use_exploration,
+        use_reward_ensemble=args.use_reward_ensemble,
         use_mean=args.use_mean,
         use_kl_div=args.use_kl_div,
+        use_normalized=args.use_normalized,
         expl_scale=args.expl_scale,
         reward_scale=args.reward_scale,
         reward_prior=args.reward_prior,
         rollout_clamp=args.rollout_clamp,
+        log_stats=args.log_stats,
         device=DEVICE,
     )
     agent = Agent(env, planner, logger=logger)
@@ -104,12 +113,14 @@ def main(args):
         e_loss, r_loss = trainer.train()
         logger.log_losses(e_loss, r_loss)
 
-        reward, steps, trajectory, actions = agent.run_episode(
+        reward, steps, trajectory, actions, stats = agent.run_episode(
             buffer, action_noise=args.action_noise
         )
         logger.log_episode(reward, steps)
+        if args.log_stats:
+            logger.log_stats(stats)
 
-        if args.plot_trajectory:
+        if episode % args.plot_every == 0:
             path = logger.img_path + "trajectory_{}.png".format(episode)
             utils.log_trajectory_predictions(
                 ensemble,
@@ -121,8 +132,7 @@ def main(args):
                 device=DEVICE,
             )
 
-        total_time = time.time() - start_time
-        logger.log_time(total_time)
+        logger.log_time(time.time() - start_time)
         logger.save()
 
 

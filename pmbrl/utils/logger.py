@@ -40,8 +40,32 @@ class Logger(object):
         self.metrics["times"].append(time)
         self.log("Episode time {:.2f}".format(time))
 
+    def log_stats(self, stats):
+        reward_stats, info_stats = stats
+        self.metrics['reward_stats'].append(reward_stats)
+        self.metrics['info_stats'].append(info_stats)
+        msg = "Reward statistics: \n [max {:.2f} min {:.2f} mean {:.2f} std {:.2f}]"
+        self.log(
+            msg.format(
+                reward_stats["max"],
+                reward_stats["min"],
+                reward_stats["mean"],
+                reward_stats["std"],
+            )
+        )
+        msg = "Information gain statistics: \n [max {:.2f} min {:.2f} mean {:.2f} std {:.2f}]"
+        self.log(
+            msg.format(
+                info_stats["max"],
+                info_stats["min"],
+                info_stats["mean"],
+                info_stats["std"],
+            )
+        )
+
     def save(self):
         self._save_json(self.metrics_path, self.metrics)
+        self.log("Saved _metrics_")
 
     def _init_outfile(self):
         f = open(self.outfile, "w")
@@ -57,6 +81,8 @@ class Logger(object):
             "rewards": [],
             "steps": [],
             "times": [],
+            "reward_stats": [],
+            "info_stats": [],
         }
 
     def _save_json(self, path, obj):

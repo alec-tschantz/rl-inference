@@ -2,12 +2,12 @@
 # pylint: disable=no-member
 
 import sys
+import time
 import pathlib
 import argparse
 
 import torch
 import numpy as np
-from tqdm import tqdm
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
@@ -15,14 +15,14 @@ from pmbrl.envs import GymEnv
 from pmbrl.training import Normalizer, Buffer, Trainer
 from pmbrl.models import EnsembleModel, RewardModel
 from pmbrl.control import Planner, Agent
-from pmbrl import tools
+from pmbrl import utils
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
 def main(args):
-    logger = tools.Logger(args.logdir, args.seed, log_every=args.log_every)
-    logger.log("\n=== Loading experiment [{}] ===".format(DEVICE))
+    logger = utils.Logger(args.logdir, args.seed)
+    logger.log("\n=== Loading experiment [device: {}] ===".format(DEVICE))
     logger.log(args)
 
     np.random.seed(args.seed)
@@ -88,48 +88,48 @@ def main(args):
         expl_scale=args.expl_scale,
         reward_scale=args.reward_scale,
         reward_prior=args.reward_prior,
-        rollout_delta_clamp=args.rollout_delta_clamp,
+        rollout_clamp=args.rollout_clamp,
         device=DEVICE,
     )
     agent = Agent(env, planner, logger=logger)
 
     agent.get_seed_episodes(buffer, args.n_seed_episodes)
-    msg = "\nCollected seeds: [{} episodes] [{} frames]"
+    msg = "\nCollected seeds: [{} episodes | {} frames]"
     logger.log(msg.format(args.n_seed_episodes, buffer.total_steps))
 
-    for episode in tqdm(range(args.n_episodes)):
+    for episode in range(args.n_episodes):
         logger.log("\n\n=== Episode {} ===".format(episode))
+        start_time = time.time()
 
         e_loss, r_loss = trainer.train()
-        logger.log_scalar("Loss/Ensemble", e_loss, episode)
-        logger.log_scalar("Loss/Reward", r_loss, episode)
+        logger.log_losses(e_loss, r_loss)
 
         reward, steps, trajectory, actions = agent.run_episode(
             buffer, action_noise=args.action_noise
         )
-        logger.log_scalar("Evaluation/Reward", reward, episode)
-        logger.log_scalar("Evaluation/Steps", steps, episode)
+        logger.log_episode(reward, steps)
 
-        if args.plan_trajectory:
-            pred_states, pred_delta_vars, traj = tools.evaluate_trajectory(
+        if args.plot_trajectory:
+            path = logger.img_path + "trajectory_{}.png".format(episode)
+            utils.log_trajectory_predictions(
                 ensemble,
                 trajectory,
                 actions,
                 args.traj_eval_steps,
+                path,
+                rollout_clamp=args.rollout_clamp,
                 device=DEVICE,
-                rollout_delta_clamp=args.rollout_delta_clamp,
             )
-            fig = tools.plot_trajectory_evaluation(pred_states, pred_delta_vars, traj)
-            logger.log_figure("Predictions/Trajectory", fig, episode)
 
-    logger.close()
+        total_time = time.time() - start_time
+        logger.log_time(total_time)
+        logger.save()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_name", type=str, default="mountain_car")
-    parser.add_argument("--logdir", type=str, default="logs")
+    parser.add_argument("--config_name", type=str)
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
-    config = tools.get_config(args)
+    config = utils.get_config(args)
     main(config)

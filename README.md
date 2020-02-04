@@ -1,16 +1,14 @@
-# Warped Generative Models
+# Exploration from exploitation
 
 Repository for `ICML` 2020 submission
 
 ### Requirements
 
-- `numpy`
-- `scipy`
 - `torch`
 - `gym`
-- `tqdm`
+- `numpy`
+- `scipy`
 - `matplotlib` _optional_
 - `mujoco_py` _optional_
 - `dm_control` _optional_
 - `roboschool` _optional_
-- `tensorboard` _optional_ 

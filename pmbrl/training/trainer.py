@@ -61,7 +61,7 @@ class Trainer(object):
                 r_losses[epoch - 1].append(r_loss.item())
                 n_batches[epoch - 1] += 1
 
-            if self.logger is not None and epoch % self.logger.log_every == 0:
+            if self.logger is not None and epoch % 5 == 0:
                 avg_e_loss = self._get_avg_loss(e_losses, n_batches, epoch)
                 avg_r_loss = self._get_avg_loss(r_losses, n_batches, epoch)
                 message = "> Train epoch {} [ensemble {:.2f} | reward {:.2f}]"

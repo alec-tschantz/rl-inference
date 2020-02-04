@@ -25,7 +25,7 @@ class Planner(nn.Module):
         expl_scale=1.0,
         reward_scale=1.0,
         reward_prior=1.0,
-        rollout_delta_clamp=None,
+        rollout_clamp=None,
         device="cpu",
     ):
         super().__init__()
@@ -46,7 +46,7 @@ class Planner(nn.Module):
         self.expl_scale = expl_scale
         self.reward_scale = reward_scale
         self.reward_prior = reward_prior
-        self.rollout_delta_clamp = rollout_delta_clamp
+        self.rollout_clamp = rollout_clamp
         self.device = device
 
         self.prior = (
@@ -92,6 +92,8 @@ class Planner(nn.Module):
                     rewards = (
                         -(self.kl_loss(rewards, self.prior) / 2.0) * self.reward_scale
                     )
+                else:
+                    rewards = rewards * self.reward_scale
 
                 rewards = rewards.view(
                     self.plan_horizon, self.ensemble_size, self.n_candidates
@@ -118,10 +120,10 @@ class Planner(nn.Module):
 
         for t in range(self.plan_horizon):
             delta_mean, delta_var = self.ensemble(states[t], actions[t])
-            if self.rollout_delta_clamp is not None:
+            if self.rollout_clamp is not None:
                 delta_mean = delta_mean.clamp(
-                    -self.rollout_delta_clamp,  # pylint: disable=invalid-unary-operand-type
-                    self.rollout_delta_clamp,
+                    -self.rollout_clamp,  # pylint: disable=invalid-unary-operand-type
+                    self.rollout_clamp,
                 )
             if self.use_mean:
                 states[t + 1] = states[t] + delta_mean

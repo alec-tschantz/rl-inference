@@ -7,8 +7,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from pmbrl import tools
-
 
 class Agent(object):
     def __init__(self, env, planner, logger=None):
@@ -52,11 +50,9 @@ class Agent(object):
                 total_reward += reward
                 total_steps += 1
 
-                if self.logger is not None and total_steps % self.logger.log_every == 0:
+                if self.logger is not None and total_steps % 50 == 0:
                     self.logger.log(
-                        "> Step {} [reward {:.2f}]".format(
-                            total_steps, total_reward
-                        )
+                        "> Step {} [reward {:.2f}]".format(total_steps, total_reward)
                     )
 
                 if buffer is not None:

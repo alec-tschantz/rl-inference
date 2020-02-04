@@ -3,10 +3,20 @@
 
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-def evaluate_trajectory(
-    ensemble, trajectory, actions, steps, device, rollout_delta_clamp=None
+def log_trajectory_predictions(
+    ensemble, trajectory, actions, steps, path, rollout_clamp=None, device="cpu"
+):
+    pred_states, pred_delta_vars, trajectory = predict_trajectory(
+        ensemble, trajectory, actions, steps, rollout_clamp, device
+    )
+    plot_trajectory_predictions(pred_states, pred_delta_vars, trajectory, path)
+
+
+def predict_trajectory(
+    ensemble, trajectory, actions, steps, rollout_clamp=None, device="cpu"
 ):
     trajectory = torch.from_numpy(trajectory).float().to(device)
     actions = torch.from_numpy(actions).float().to(device)
@@ -30,10 +40,10 @@ def evaluate_trajectory(
         action = actions[t].unsqueeze(0).unsqueeze(0)
         action = action.repeat(ensemble.ensemble_size, 1, 1)
         delta_mean, delta_var = ensemble(state, action)
-        if rollout_delta_clamp is not None:
+        if rollout_clamp is not None:
             delta_mean = delta_mean.clamp(
-                -rollout_delta_clamp,  # pylint: disable=invalid-unary-operand-type
-                rollout_delta_clamp,
+                -rollout_clamp,  # pylint: disable=invalid-unary-operand-type
+                rollout_clamp,
             )
         state = state + ensemble.sample(delta_mean, delta_var)
         pred_states.append(state)
@@ -51,3 +61,21 @@ def evaluate_trajectory(
     trajectory = trajectory[start_idx : end_idx - 1].cpu().detach().numpy()
 
     return pred_states, pred_delta_vars, trajectory
+
+
+def plot_trajectory_predictions(pred_states, pred_delta_vars, trajectory, path):
+    state_size = pred_states.shape[2]
+    ensemble_size = pred_states.shape[1]
+    steps = range(pred_states.shape[0])
+    _, axes = plt.subplots(state_size, 1, figsize=(15, int(state_size * 2)))
+    for i in range(state_size):
+        for j in range(ensemble_size):
+            top = pred_states[:, j, i] + pred_delta_vars[:, j, i]
+            bottom = pred_states[:, j, i] - pred_delta_vars[:, j, i]
+            axes[i].plot(pred_states[:, j, i], color="r")
+            axes[i].fill_between(steps, top, bottom, color="r", alpha=0.3)
+            axes[i].plot(trajectory[:, i], color="g")
+            axes[i].spines["top"].set_visible(False)
+            axes[i].spines["right"].set_visible(False)
+    plt.savefig(path)
+

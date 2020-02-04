@@ -156,18 +156,6 @@ class Planner(nn.Module):
         delta_means = torch.stack(delta_means[1:], dim=0)
         return states, delta_vars, delta_means
 
-    def _fit_gaussian(self, actions, returns):
-        returns = torch.where(torch.isnan(returns), torch.zeros_like(returns), returns)
-        _, topk = returns.topk(self.top_candidates, dim=0, largest=True, sorted=False)
-        best_actions = actions[:, topk.view(-1)].reshape(
-            self.plan_horizon, self.top_candidates, self.action_size
-        )
-        action_mean, action_std_dev = (
-            best_actions.mean(dim=1, keepdim=True),
-            best_actions.std(dim=1, unbiased=False, keepdim=True),
-        )
-        return action_mean, action_std_dev
-
     def return_stats(self):
         if self.log_stats:
             if self.use_exploration:
@@ -184,6 +172,24 @@ class Planner(nn.Module):
         self.rewards_trial = []
         self.bonuses_trial = []
         return reward_stats, info_stats
+
+    def set_use_reward(self, use_reward):
+        self.use_reward = use_reward
+
+    def set_use_exploration(self, use_exploration):
+        self.use_exploration = use_exploration
+
+    def _fit_gaussian(self, actions, returns):
+        returns = torch.where(torch.isnan(returns), torch.zeros_like(returns), returns)
+        _, topk = returns.topk(self.top_candidates, dim=0, largest=True, sorted=False)
+        best_actions = actions[:, topk.view(-1)].reshape(
+            self.plan_horizon, self.top_candidates, self.action_size
+        )
+        action_mean, action_std_dev = (
+            best_actions.mean(dim=1, keepdim=True),
+            best_actions.std(dim=1, unbiased=False, keepdim=True),
+        )
+        return action_mean, action_std_dev
 
     def _create_stats(self, arr):
         tensor = torch.stack(arr)

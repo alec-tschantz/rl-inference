@@ -27,13 +27,21 @@ class Agent(object):
                     break
         return buffer
 
-    def run_episode(self, buffer=None, action_noise=None):
+    def run_episode(
+        self, buffer=None, action_noise=None, use_reward=None, use_exploration=None
+    ):
         self.logger.log("=== Collecting data ===")
         total_reward = 0
         total_steps = 0
         trajectory = []
         actions = []
         done = False
+
+        if use_reward is not None:
+            self.planner.set_use_reward(use_reward)
+
+        if use_exploration is not None:
+            self.planner.set_use_exploration(use_exploration)
 
         with torch.no_grad():
             state = self.env.reset()

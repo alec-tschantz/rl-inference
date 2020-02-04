@@ -17,7 +17,7 @@ class SparseHalfCheetahFlipEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.prev_x_torso = np.copy(self.get_body_com("torso")[0:1])
         self.do_simulation(action, self.frame_skip)
         obs = self._get_obs()
-        reward = obs[12] - 0.1 * np.sum((action ** 2))
+        reward = obs[12] 
         done = False
         return obs, reward, done, {}
 

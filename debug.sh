@@ -1,1 +1,1 @@
-python scripts/train.py --config_name="debug" --seed=0
+python scripts/train_base.py --config_name="debug" --seed=0

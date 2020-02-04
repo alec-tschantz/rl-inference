@@ -40,10 +40,17 @@ class Logger(object):
         self.metrics["times"].append(time)
         self.log("Episode time {:.2f}".format(time))
 
+    def log_exploitation(self, use_reward):
+        self.metrics["is_exploitation"].append(use_reward)
+
+    def log_coverage(self, coverage):
+        self.metrics["coverage"].append(coverage)
+        self.log("Coverage {:.2f}".format(coverage))
+
     def log_stats(self, stats):
         reward_stats, info_stats = stats
-        self.metrics['reward_stats'].append(reward_stats)
-        self.metrics['info_stats'].append(info_stats)
+        self.metrics["reward_stats"].append(reward_stats)
+        self.metrics["info_stats"].append(info_stats)
         msg = "Reward statistics: \n [max {:.2f} min {:.2f} mean {:.2f} std {:.2f}]"
         self.log(
             msg.format(
@@ -83,6 +90,8 @@ class Logger(object):
             "times": [],
             "reward_stats": [],
             "info_stats": [],
+            "is_exploitation": [],
+            "coverage": [],
         }
 
     def _save_json(self, path, obj):

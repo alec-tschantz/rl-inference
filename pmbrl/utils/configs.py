@@ -35,8 +35,9 @@ class Config(object):
         self.logdir = "log"
         self.seed = 0
         self.traj_eval_steps = 30
-        self.plot_every = 10
+        self.plot_every = 5
         self.log_stats = True
+        self.test_every = 5
 
         self.env_name = None
         self.max_episode_len = 500
@@ -117,6 +118,7 @@ class CupCatchConfig(Config):
         self.n_episodes = 50
         self.plan_horizon = 12
 
+
 class CartpoleConfig(Config):
     def __init__(self):
         super().__init__()
@@ -124,31 +126,61 @@ class CartpoleConfig(Config):
         self.env_name = "SparseCartpoleSwingup"
         self.max_episode_len = 500
         self.action_repeat = 3
-        self.n_episodes = 100
+
 
 class HalfCheetahRunConfig(Config):
     def __init__(self):
         super().__init__()
         self.logdir = "half_cheetah_run"
         self.env_name = "SparseHalfCheetahRun"
-        self.max_episode_len = 500
+        self.test_every = 5
+        self.max_episode_len = 100
+        self.n_episodes = 200
+        self.n_train_epochs = 20
         self.action_repeat = 3
-        self.n_episodes = 100
+        self.rollout_clamp = 10
+        self.expl_scale = 1.
+        self.plan_horizon = 15
+        self.n_candidates = 700
+        self.top_candidates = 70
+        self.optimisation_iters = 7
+        self.n_seed_episodes = 2
+        
 
 class HalfCheetahFlipConfig(Config):
     def __init__(self):
         super().__init__()
         self.logdir = "half_cheetah_flip"
         self.env_name = "SparseHalfCheetahFlip"
-        self.max_episode_len = 500
+        self.test_every = 5
+        self.max_episode_len = 100
+        self.n_episodes = 200
+        self.n_train_epochs = 20
         self.action_repeat = 3
-        self.n_episodes = 100
+        self.rollout_clamp = 10
+        self.expl_scale = 1.
+        self.plan_horizon = 15
+        self.n_candidates = 700
+        self.top_candidates = 70
+        self.optimisation_iters = 7
+        self.n_seed_episodes = 2
+        
 
 class AntMazeConfig(Config):
     def __init__(self):
         super().__init__()
         self.logdir = "ant_maze"
         self.env_name = "SparseAntMaze"
-        self.max_episode_len = 500
-        self.action_repeat = 3
-        self.n_episodes = 100
+        self.max_episode_len = 300
+        self.n_episodes = 50
+        self.n_train_epochs = 40
+        self.action_repeat = 4
+        self.rollout_clamp = 10
+        self.expl_scale = 1.
+        self.plan_horizon = 20
+        self.n_candidates = 700
+        self.top_candidates = 70
+        self.optimisation_iters = 7
+        self.use_reward = False
+        self.n_seed_episodes = 1
+ 

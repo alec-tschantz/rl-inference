@@ -20,15 +20,9 @@ class Planner(nn.Module):
         top_candidates,
         use_reward=True,
         use_exploration=True,
-        use_reward_ensemble=False,
         use_mean=False,
-        use_kl_div=False,
-        use_normalized=True,
         expl_scale=1.0,
         reward_scale=1.0,
-        reward_prior=1.0,
-        rollout_clamp=None,
-        log_stats=False,
         device="cpu",
     ):
         super().__init__()
@@ -44,27 +38,14 @@ class Planner(nn.Module):
 
         self.use_reward = use_reward
         self.use_exploration = use_exploration
-        self.use_reward_ensemble = use_reward_ensemble
         self.use_mean = use_mean
-        self.use_kl_div = use_kl_div
-        self.use_normalized = use_normalized
         self.expl_scale = expl_scale
         self.reward_scale = reward_scale
-        self.reward_prior = reward_prior
-        self.rollout_clamp = rollout_clamp
-        self.log_stats = log_stats
         self.device = device
 
-        self.prior = (
-            torch.ones((self.plan_horizon * self.ensemble_size * self.n_candidates))
-            .float()
-            .to(self.device)
-        ) * self.reward_prior
-
-        self.measure = InformationGain(self.ensemble, normalized=use_normalized)
-        self.kl_loss = torch.nn.MSELoss(reduction="none")
-        self.rewards_trial = []
-        self.bonuses_trial = []
+        self.measure = InformationGain(self.ensemble, scale=expl_scale)
+        self.trial_rewards = []
+        self.trial_bonuses = []
         self.to(device)
 
     def forward(self, state):
@@ -89,36 +70,21 @@ class Planner(nn.Module):
             returns = torch.zeros(self.n_candidates).float().to(self.device)
             if self.use_exploration:
                 expl_bonus = self.measure(delta_means, delta_vars) * self.expl_scale
-                expl_bonus = expl_bonus.sum(dim=0)
                 returns += expl_bonus
-                if self.log_stats:
-                    self.bonuses_trial.append(expl_bonus)
+                self.trial_bonuses.append(expl_bonus)
 
             if self.use_reward:
-                if self.use_reward_ensemble:
-                    states = states.permute(1, 0, 2, 3)
-                    states = states.contiguous().view(
-                        self.ensemble_size, -1, state_size
-                    )
-                else:
-                    states = states.view(-1, state_size)
-                rewards = self.reward_model(states)
-
-                if self.use_kl_div:
-                    rewards = (
-                        -(self.kl_loss(rewards, self.prior) / 2.0) * self.reward_scale
-                    )
-                else:
-                    rewards = rewards * self.reward_scale
-
+                _states = states.view(-1, state_size)
+                _actions = actions.unsqueeze(0).repeat(self.ensemble_size, 1, 1, 1)
+                _actions = _actions.view(-1, self.action_size)
+                rewards = self.reward_model(_states, _actions)
+                rewards = rewards * self.reward_scale
                 rewards = rewards.view(
                     self.plan_horizon, self.ensemble_size, self.n_candidates
                 )
                 rewards = rewards.mean(dim=1).sum(dim=0)
                 returns += rewards
-
-                if self.log_stats:
-                    self.rewards_trial.append(rewards)
+                self.trial_rewards.append(rewards)
 
             action_mean, action_std_dev = self._fit_gaussian(actions, returns)
 
@@ -139,11 +105,6 @@ class Planner(nn.Module):
 
         for t in range(self.plan_horizon):
             delta_mean, delta_var = self.ensemble(states[t], actions[t])
-            if self.rollout_clamp is not None:
-                delta_mean = delta_mean.clamp(
-                    -self.rollout_clamp,  # pylint: disable=invalid-unary-operand-type
-                    self.rollout_clamp,
-                )
             if self.use_mean:
                 states[t + 1] = states[t] + delta_mean
             else:
@@ -155,29 +116,6 @@ class Planner(nn.Module):
         delta_vars = torch.stack(delta_vars[1:], dim=0)
         delta_means = torch.stack(delta_means[1:], dim=0)
         return states, delta_vars, delta_means
-
-    def return_stats(self):
-        if self.log_stats:
-            if self.use_exploration:
-                info_stats = self._create_stats(self.bonuses_trial)
-            else:
-                info_stats = {"max": 0, "min": 0, "mean": 0, "std": 0}
-            if self.use_reward:
-                reward_stats = self._create_stats(self.rewards_trial)
-            else:
-                reward_stats = {"max": 0, "min": 0, "mean": 0, "std": 0}
-        else:
-            reward_stats = {"max": 0, "min": 0, "mean": 0, "std": 0}
-            info_stats = {"max": 0, "min": 0, "mean": 0, "std": 0}
-        self.rewards_trial = []
-        self.bonuses_trial = []
-        return reward_stats, info_stats
-
-    def set_use_reward(self, use_reward):
-        self.use_reward = use_reward
-
-    def set_use_exploration(self, use_exploration):
-        self.use_exploration = use_exploration
 
     def _fit_gaussian(self, actions, returns):
         returns = torch.where(torch.isnan(returns), torch.zeros_like(returns), returns)
@@ -191,10 +129,16 @@ class Planner(nn.Module):
         )
         return action_mean, action_std_dev
 
+    def return_stats(self):
+        reward_stats = self._create_stats(self.trial_rewards)
+        info_stats = self._create_stats(self.trial_bonuses)
+        self.trial_rewards = []
+        self.trial_bonuses = []
+        return reward_stats, info_stats
+
     def _create_stats(self, arr):
         tensor = torch.stack(arr)
         tensor = tensor.view(-1)
-
         return {
             "max": tensor.max().item(),
             "min": tensor.min().item(),

@@ -14,35 +14,38 @@ def swish(x):
 class EnsembleDenseLayer(nn.Module):
     def __init__(self, in_size, out_size, ensemble_size, act_fn="swish"):
         super().__init__()
-        weights = torch.zeros(ensemble_size, in_size, out_size).float()
-        biases = torch.zeros(ensemble_size, 1, out_size).float()
-
-        for weight in weights:
-            self._init_weight(weight, act_fn)
-
-        self.weights = nn.Parameter(weights)
-        self.biases = nn.Parameter(biases)
-        self.act_fn = self._get_act_fn(act_fn)
+        self.in_size = in_size
+        self.out_size = out_size
+        self.ensemble_size = ensemble_size
+        self.act_fn_name = act_fn
+        self.act_fn = self._get_act_fn(self.act_fn_name)
+        self.reset_parameters()
 
     def forward(self, x):
         op = torch.baddbmm(self.biases, x, self.weights)
         op = self.act_fn(op)
         return op
 
-    def _init_weight(self, weight, act_fn):
-        if act_fn == "swish":
+    def reset_parameters(self):
+        weights = torch.zeros(self.ensemble_size, self.in_size, self.out_size).float()
+        biases = torch.zeros(self.ensemble_size, 1, self.out_size).float()
+
+        for weight in weights:
+            self._init_weight(weight, self.act_fn_name)
+
+        self.weights = nn.Parameter(weights)
+        self.biases = nn.Parameter(biases)
+
+    def _init_weight(self, weight, act_fn_name):
+        if act_fn_name == "swish":
             nn.init.xavier_uniform_(weight)
-        elif act_fn == "relu":
-            nn.init.kaiming_normal_(weight)
-        elif act_fn == "linear":
+        elif act_fn_name == "linear":
             nn.init.xavier_normal_(weight)
 
-    def _get_act_fn(self, act_fn):
-        if act_fn == "swish":
+    def _get_act_fn(self, act_fn_name):
+        if act_fn_name == "swish":
             return swish
-        elif act_fn == "relu":
-            return F.relu
-        elif act_fn == "linear":
+        elif act_fn_name == "linear":
             return lambda x: x
 
 
@@ -54,14 +57,10 @@ class EnsembleModel(nn.Module):
         hidden_size,
         ensemble_size,
         normalizer,
-        max_logvar=-1,
-        min_logvar=-5,
         act_fn="swish",
         device="cpu",
     ):
         super().__init__()
-
-        self.ensemble_size = ensemble_size
 
         self.fc_1 = EnsembleDenseLayer(
             in_size, hidden_size, ensemble_size, act_fn=act_fn
@@ -76,11 +75,12 @@ class EnsembleModel(nn.Module):
             hidden_size, out_size * 2, ensemble_size, act_fn="linear"
         )
 
+        self.ensemble_size = ensemble_size
         self.normalizer = normalizer
         self.device = device
-
-        self.max_logvar = max_logvar
-        self.min_logvar = min_logvar
+        self.max_logvar = -1
+        self.min_logvar = -5
+        self.device = device
         self.to(device)
 
     def forward(self, states, actions):
@@ -93,9 +93,6 @@ class EnsembleModel(nn.Module):
         )
         return delta_mean, delta_var
 
-    def sample(self, mean, var):
-        return Normal(mean, torch.sqrt(var)).sample()
-
     def loss(self, states, actions, state_deltas):
         states, actions = self._pre_process_model_inputs(states, actions)
         delta_targets = self._pre_process_model_targets(state_deltas)
@@ -104,8 +101,15 @@ class EnsembleModel(nn.Module):
         loss = loss.mean(-1).mean(-1).sum()
         return loss
 
-    def set_normalizer(self, normalizer):
-        self.normalizer = normalizer
+    def sample(self, mean, var):
+        return Normal(mean, torch.sqrt(var)).sample()
+
+    def reset_parameters(self):
+        self.fc_1.reset_parameters()
+        self.fc_2.reset_parameters()
+        self.fc_3.reset_parameters()
+        self.fc_4.reset_parameters()
+        self.to(self.device)
 
     def _propagate_network(self, states, actions):
         inp = torch.cat((states, actions), dim=2)
@@ -142,51 +146,29 @@ class EnsembleModel(nn.Module):
 
 
 class RewardModel(nn.Module):
-    def __init__(
-        self,
-        state_size,
-        hidden_size,
-        use_reward_ensemble=False,
-        ensemble_size=None,
-        act_fn="relu",
-        device="cpu",
-    ):
+    def __init__(self, in_size, hidden_size, act_fn="relu", device="cpu"):
         super().__init__()
-        self.use_reward_ensemble = use_reward_ensemble
-        if not self.use_reward_ensemble:
-            self.act_fn = getattr(F, act_fn)
-            self.fc_1 = nn.Linear(state_size, hidden_size)
-            self.fc_2 = nn.Linear(hidden_size, hidden_size)
-            self.fc_3 = nn.Linear(hidden_size, 1)
-        else:
-            self.fc_1 = EnsembleDenseLayer(
-                state_size, hidden_size, ensemble_size, act_fn=act_fn
-            )
-            self.fc_2 = EnsembleDenseLayer(
-                hidden_size, hidden_size, ensemble_size, act_fn=act_fn
-            )
-            self.fc_3 = EnsembleDenseLayer(
-                hidden_size, 1, ensemble_size, act_fn="linear"
-            )
+        self.in_size = in_size
+        self.hidden_size = hidden_size
+        self.act_fn = getattr(F, act_fn)
+        self.reset_parameters()
+        self.device = device
         self.to(device)
 
-    def forward(self, state):
-        if not self.use_reward_ensemble:
-            reward = self.act_fn(self.fc_1(state))
-            reward = self.act_fn(self.fc_2(reward))
-            reward = self.fc_3(reward).squeeze(dim=1)
-        else:
-            reward = self.fc_1(state)
-            reward = self.fc_2(reward)
-            reward = self.fc_3(reward).squeeze(dim=1)
+    def forward(self, states, actions):
+        inp = torch.cat((states, actions), dim=-1)
+        reward = self.act_fn(self.fc_1(inp))
+        reward = self.act_fn(self.fc_2(reward))
+        reward = self.fc_3(reward).squeeze(dim=1)
         return reward
 
-    def loss(self, states, rewards):
-        r_hat = self(states)
-        if not self.use_reward_ensemble:
-            loss = F.mse_loss(r_hat, rewards)
-        else:
-            loss = F.mse_loss(r_hat, rewards, reduction="none")
-            loss = loss.mean(-1).mean(-1).sum()
-        return loss
+    def loss(self, states, actions, rewards):
+        r_hat = self(states, actions)
+        return F.mse_loss(r_hat, rewards)
+
+    def reset_parameters(self):
+        self.fc_1 = nn.Linear(self.in_size, self.hidden_size)
+        self.fc_2 = nn.Linear(self.hidden_size, self.hidden_size)
+        self.fc_3 = nn.Linear(self.hidden_size, 1)
+        self.to(self.device)
 

@@ -7,9 +7,9 @@ from scipy.special import psi, gamma
 
 
 class InformationGain(object):
-    def __init__(self, model, normalized=True):
+    def __init__(self, model, scale=1.0):
         self.model = model
-        self.normalized = True
+        self.scale = scale
 
     def __call__(self, delta_means, delta_vars):
         """
@@ -20,12 +20,10 @@ class InformationGain(object):
         plan_horizon = delta_means.size(0)
         n_candidates = delta_means.size(2)
 
-        if self.normalized:
-            delta_means = self.model.normalizer.renormalize_state_delta_means(
-                delta_means
-            )
-            delta_vars = self.model.normalizer.renormalize_state_delta_vars(delta_vars)
-
+        delta_means = self.model.normalizer.renormalize_state_delta_means(
+            delta_means
+        )
+        delta_vars = self.model.normalizer.renormalize_state_delta_vars(delta_vars)
         delta_states = self.model.sample(delta_means, delta_vars)
         info_gains = (
             torch.zeros(plan_horizon, n_candidates).float().to(delta_means.device)
@@ -36,7 +34,8 @@ class InformationGain(object):
             avg_ent = self.average_of_entropy(delta_vars[t])
             info_gains[t, :] = ent_avg - avg_ent
 
-        return info_gains
+        info_gains = info_gains * self.scale
+        return info_gains.sum(dim=0)
 
     def entropy_of_average(self, samples):
         """

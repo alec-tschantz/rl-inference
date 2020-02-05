@@ -31,9 +31,6 @@ class Trainer(object):
         self.optim = torch.optim.Adam(self.params, lr=learning_rate, eps=epsilon)
 
     def train(self):
-        msg = "Training on {} data points"
-        self.logger.log(msg.format(self.buffer.total_steps))
-
         e_losses = []
         r_losses = []
         n_batches = []
@@ -50,7 +47,7 @@ class Trainer(object):
 
                 self.optim.zero_grad()
                 e_loss = self.ensemble.loss(states, actions, deltas)
-                r_loss = self.reward_model.loss(states, rewards)
+                r_loss = self.reward_model.loss(states, actions, rewards)
                 (e_loss + r_loss).backward()
                 torch.nn.utils.clip_grad_norm_(
                     self.params, self.grad_clip_norm, norm_type=2
@@ -61,7 +58,7 @@ class Trainer(object):
                 r_losses[epoch - 1].append(r_loss.item())
                 n_batches[epoch - 1] += 1
 
-            if self.logger is not None and epoch % 5 == 0:
+            if self.logger is not None and epoch % 20 == 0:
                 avg_e_loss = self._get_avg_loss(e_losses, n_batches, epoch)
                 avg_r_loss = self._get_avg_loss(r_losses, n_batches, epoch)
                 message = "> Train epoch {} [ensemble {:.2f} | reward {:.2f}]"
@@ -70,6 +67,16 @@ class Trainer(object):
         return (
             self._get_avg_loss(e_losses, n_batches, epoch),
             self._get_avg_loss(r_losses, n_batches, epoch),
+        )
+
+    def reset_models(self):
+        self.ensemble.reset_parameters()
+        self.reward_model.reset_parameters()
+        self.params = list(self.ensemble.parameters()) + list(
+            self.reward_model.parameters()
+        )
+        self.optim = torch.optim.Adam(
+            self.params, lr=self.learning_rate, eps=self.epsilon
         )
 
     def _get_avg_loss(self, losses, n_batches, epoch):

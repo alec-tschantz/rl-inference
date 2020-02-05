@@ -6,7 +6,7 @@ from gym import utils
 from gym.envs.mujoco import mujoco_env
 
 
-class SparseHalfCheetahFlipEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+class HalfCheetahFlipEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         self.prev_x_torso = None
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -17,7 +17,7 @@ class SparseHalfCheetahFlipEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.prev_x_torso = np.copy(self.get_body_com("torso")[0:1])
         self.do_simulation(action, self.frame_skip)
         obs = self._get_obs()
-        reward = obs[12] 
+        reward = obs[12] - 0.1 * (action ** 2).sum()
         done = False
         return obs, reward, done, {}
 

@@ -27,21 +27,10 @@ class Agent(object):
                     break
         return buffer
 
-    def run_episode(
-        self, buffer=None, action_noise=None, use_reward=None, use_exploration=None
-    ):
-        self.logger.log("=== Collecting data ===")
+    def run_episode(self, buffer=None, action_noise=None):
         total_reward = 0
         total_steps = 0
-        trajectory = []
-        actions = []
         done = False
-
-        if use_reward is not None:
-            self.planner.set_use_reward(use_reward)
-
-        if use_exploration is not None:
-            self.planner.set_use_exploration(use_exploration)
 
         with torch.no_grad():
             state = self.env.reset()
@@ -51,14 +40,11 @@ class Agent(object):
                     action = self._add_action_noise(action, action_noise)
                 action = action.cpu().detach().numpy()
 
-                trajectory.append(state)
-                actions.append(action)
-
                 next_state, reward, done, _ = self.env.step(action)
                 total_reward += reward
                 total_steps += 1
 
-                if self.logger is not None and total_steps % 50 == 0:
+                if self.logger is not None and total_steps % 25 == 0:
                     self.logger.log(
                         "> Step {} [reward {:.2f}]".format(total_steps, total_reward)
                     )
@@ -70,10 +56,8 @@ class Agent(object):
                     break
 
         self.env.close()
-        trajectory = np.vstack(trajectory)
-        actions = np.vstack(actions)
         stats = self.planner.return_stats()
-        return total_reward, total_steps, trajectory, actions, stats
+        return total_reward, total_steps, stats
 
     def _add_action_noise(self, action, noise):
         if noise is not None:

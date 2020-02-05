@@ -2,10 +2,8 @@ import gym
 import roboschool
 
 SPARSE_MOUNTAIN_CAR = "SparseMountainCar"
-SPARSE_CARTPOLE_SWINGUP = "SparseCartpoleSwingup"
-SPARSE_HALF_CHEETAH_RUN = "SparseHalfCheetahRun"
-SPARSE_HALF_CHEETAH_FLIP = "SparseHalfCheetahFlip"
-SPARSE_ANT_MAZE = "SparseAntMaze"
+HALF_CHEETAH_RUN = "HalfCheetahRun"
+HALF_CHEETAH_FLIP = "HalfCheetahFlip"
 DM_CATCH = "DeepMindCatch"
 
 
@@ -60,31 +58,19 @@ class GymEnv(object):
 
             return SparseMountainCarEnv()
 
-        elif env_name == SPARSE_CARTPOLE_SWINGUP:
-            from pmbrl.envs.envs.cartpole import SparseCartpoleSwingupEnv
+        elif env_name == HALF_CHEETAH_RUN:
+            from pmbrl.envs.envs.half_cheetah_run import HalfCheetahRunEnv
 
-            return SparseCartpoleSwingupEnv()
+            return HalfCheetahRunEnv()
 
-        elif env_name == SPARSE_HALF_CHEETAH_RUN:
-            from pmbrl.envs.envs.half_cheetah_run import SparseHalfCheetahRunEnv
+        elif env_name == HALF_CHEETAH_FLIP:
+            from pmbrl.envs.envs.half_cheetah_flip import HalfCheetahFlipEnv
 
-            return SparseHalfCheetahRunEnv()
-
-        elif env_name == SPARSE_HALF_CHEETAH_FLIP:
-            from pmbrl.envs.envs.half_cheetah_flip import SparseHalfCheetahFlipEnv
-
-            return SparseHalfCheetahFlipEnv()
-
-        elif env_name == SPARSE_ANT_MAZE:
-            from pmbrl.envs.envs.ant import SparseAntEnv
-
-            return SparseAntEnv()
+            return HalfCheetahFlipEnv()
 
         elif env_name == DM_CATCH:
             from pmbrl.envs.dm_wrapper import DeepMindWrapper
 
-            domain = "ball_in_cup"
-            task = "catch"
-            return DeepMindWrapper(domain=domain, task=task)
+            return DeepMindWrapper(domain="ball_in_cup", task="catch")
         else:
             return gym.make(env_name)

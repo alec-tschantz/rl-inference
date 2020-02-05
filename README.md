@@ -6,19 +6,19 @@ Repository for `ICML` 2020 submission
 
 - `torch`
 - `gym`
+- `mujoco_py` 
+- `dm_control` 
 - `numpy`
 - `scipy`
-- `matplotlib` _optional_
-- `mujoco_py` _optional_
-- `dm_control` _optional_
-- `roboschool` _optional_
+- `matplotlib` 
 
 ### Environments
 
-- `SparseMountainCar`: run using the `train_base` script with the `mountain_car` config
-- `SparseCartpoleSwingup`: run using the `train_base` script with the `cartpole` config
-- `SparseCupCatch`: run using the `train_base` script with the `cup_catch` config
+- `SparseMountainCar`: run using the `train` script with the `mountain_car` config
+- `CupCatch`: run using the `train` script with the `cup_catch` config
+- `HalfCheetahRun`: run using the `train` script with the `half_cheetah_run` config
+- `HalfCheetahFlip`: run using the `train` script with the `half_cheetah_flip` config
 
-- `SparseHalfCheetahRun`: run using the `train_iter` script with the `half_cheetah_run` config
-- `SparseHalfCheetahFlip`: run using the `train_iter` script with the `half_cheetah_flip` config
-- `SparseAntMaze`: run using the `train_exploration` script with the `ant_maze` config
+### Tasks
+
+- Setup action noise exploration and no exploration configs

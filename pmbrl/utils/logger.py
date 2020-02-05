@@ -1,6 +1,7 @@
 import os
 import json
 from datetime import datetime
+import pprint
 
 
 class Logger(object):
@@ -8,17 +9,15 @@ class Logger(object):
         self.logdir = logdir
         self.seed = seed
         self.path = logdir + "_" + str(seed) + "/"
-        self._img_path = self.path + "/img/"
-        self.outfile = self.path + "out.txt"
+        self.print_path = self.path + "out.txt"
         self.metrics_path = self.path + "metrics.json"
-        self.metrics = {}
         os.makedirs(self.path, exist_ok=True)
-        os.makedirs(self._img_path, exist_ok=True)
-        self._init_outfile()
+        self.metrics = {}
+        self._init_print()
         self._setup_metrics()
 
     def log(self, string):
-        f = open(self.outfile, "a")
+        f = open(self.print_path, "a")
         f.write("\n")
         f.write(str(string))
         f.close()
@@ -40,42 +39,23 @@ class Logger(object):
         self.metrics["times"].append(time)
         self.log("Episode time {:.2f}".format(time))
 
-    def log_exploitation(self, use_reward):
-        self.metrics["is_exploitation"].append(use_reward)
-
-    def log_coverage(self, coverage):
-        self.metrics["coverage"].append(coverage)
-        self.log("Coverage {:.2f}".format(coverage))
-
     def log_stats(self, stats):
         reward_stats, info_stats = stats
         self.metrics["reward_stats"].append(reward_stats)
         self.metrics["info_stats"].append(info_stats)
-        msg = "Reward statistics: \n [max {:.2f} min {:.2f} mean {:.2f} std {:.2f}]"
-        self.log(
-            msg.format(
-                reward_stats["max"],
-                reward_stats["min"],
-                reward_stats["mean"],
-                reward_stats["std"],
-            )
-        )
-        msg = "Information gain statistics: \n [max {:.2f} min {:.2f} mean {:.2f} std {:.2f}]"
-        self.log(
-            msg.format(
-                info_stats["max"],
-                info_stats["min"],
-                info_stats["mean"],
-                info_stats["std"],
-            )
-        )
+        for key in reward_stats:
+            reward_stats[key] = "{:.2f}".format(reward_stats[key])
+        for key in info_stats:
+            info_stats[key] = "{:.2f}".format(info_stats[key])
+        self.log("Reward stats:\n {}".format(pprint.pformat(reward_stats)))
+        self.log("Information gain stats:\n {}".format(pprint.pformat(info_stats)))
 
     def save(self):
         self._save_json(self.metrics_path, self.metrics)
         self.log("Saved _metrics_")
 
-    def _init_outfile(self):
-        f = open(self.outfile, "w")
+    def _init_print(self):
+        f = open(self.print_path, "w")
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         f.write(current_time)
@@ -90,14 +70,9 @@ class Logger(object):
             "times": [],
             "reward_stats": [],
             "info_stats": [],
-            "is_exploitation": [],
-            "coverage": [],
         }
 
     def _save_json(self, path, obj):
         with open(path, "w") as file:
             json.dump(obj, file)
 
-    @property
-    def img_path(self):
-        return self._img_path

@@ -150,9 +150,9 @@ class RewardModel(nn.Module):
         super().__init__()
         self.in_size = in_size
         self.hidden_size = hidden_size
+        self.device = device
         self.act_fn = getattr(F, act_fn)
         self.reset_parameters()
-        self.device = device
         self.to(device)
 
     def forward(self, states, actions):
@@ -171,4 +171,3 @@ class RewardModel(nn.Module):
         self.fc_2 = nn.Linear(self.hidden_size, self.hidden_size)
         self.fc_3 = nn.Linear(self.hidden_size, 1)
         self.to(self.device)
-

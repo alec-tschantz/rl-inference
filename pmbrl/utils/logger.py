@@ -11,7 +11,9 @@ class Logger(object):
         self.path = logdir + "_" + str(seed) + "/"
         self.print_path = self.path + "out.txt"
         self.metrics_path = self.path + "metrics.json"
+        self.video_dir = self.path + "videos/"
         os.makedirs(self.path, exist_ok=True)
+        os.makedirs(self.video_dir, exist_ok=True)
         self.metrics = {}
         self._init_print()
         self._setup_metrics()
@@ -53,6 +55,9 @@ class Logger(object):
     def save(self):
         self._save_json(self.metrics_path, self.metrics)
         self.log("Saved _metrics_")
+
+    def get_video_path(self, episode):
+        return self.video_dir + "{}.mp4".format(episode)
 
     def _init_print(self):
         f = open(self.print_path, "w")

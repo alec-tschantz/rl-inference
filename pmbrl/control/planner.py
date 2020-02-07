@@ -47,6 +47,7 @@ class Planner(nn.Module):
         self.trial_rewards = []
         self.trial_bonuses = []
         self.to(device)
+        
 
     def forward(self, state):
         state = torch.from_numpy(state).float().to(self.device)
@@ -130,8 +131,14 @@ class Planner(nn.Module):
         return action_mean, action_std_dev
 
     def return_stats(self):
-        reward_stats = self._create_stats(self.trial_rewards)
-        info_stats = self._create_stats(self.trial_bonuses)
+        if self.use_reward:
+            reward_stats = self._create_stats(self.trial_rewards)
+        else:
+            reward_stats = {}
+        if self.use_exploration:
+            info_stats = self._create_stats(self.trial_bonuses)
+        else:
+            info_stats = {}
         self.trial_rewards = []
         self.trial_bonuses = []
         return reward_stats, info_stats

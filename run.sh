@@ -1,0 +1,1 @@
+xvfb-run -s "-screen 0 1400x900x24" python scripts/train.py --config_name="lunar_lander" --seed=0

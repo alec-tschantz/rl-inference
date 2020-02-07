@@ -8,6 +8,7 @@ Repository for `ICML` 2020 submission
 - `gym`
 - `mujoco_py` 
 - `dm_control` 
+- `Box2D`
 - `numpy`
 - `scipy`
 - `matplotlib` 
@@ -22,3 +23,4 @@ Repository for `ICML` 2020 submission
 ### Tasks
 
 - Setup action noise exploration and no exploration configs
+- Can we do exploration + exploitation vs. exploration vs. exploitation in train phases? 

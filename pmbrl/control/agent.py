@@ -3,9 +3,9 @@
 
 from copy import deepcopy
 
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
 
 class Agent(object):
@@ -27,7 +27,7 @@ class Agent(object):
                     break
         return buffer
 
-    def run_episode(self, buffer=None, action_noise=None):
+    def run_episode(self, buffer=None, action_noise=None, recorder=None):
         total_reward = 0
         total_steps = 0
         done = False
@@ -51,9 +51,16 @@ class Agent(object):
 
                 if buffer is not None:
                     buffer.add(state, action, reward, next_state)
+                if recorder is not None:
+                    recorder.capture_frame()
+
                 state = deepcopy(next_state)
                 if done:
                     break
+
+        if recorder is not None:
+            recorder.close()
+            del recorder
 
         self.env.close()
         stats = self.planner.return_stats()

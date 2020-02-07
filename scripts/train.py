@@ -6,8 +6,9 @@ import time
 import pathlib
 import argparse
 
-import torch
 import numpy as np
+import torch
+from gym.wrappers.monitoring.video_recorder import VideoRecorder
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
@@ -89,7 +90,7 @@ def main(args):
     msg = "\nCollected seeds: [{} episodes | {} frames]"
     logger.log(msg.format(args.n_seed_episodes, buffer.total_steps))
 
-    for episode in range(args.n_episodes):
+    for episode in range(1, args.n_episodes):
         logger.log("\n=== Episode {} ===".format(episode))
         start_time = time.time()
 
@@ -101,8 +102,16 @@ def main(args):
         ensemble_loss, reward_loss = trainer.train()
         logger.log_losses(ensemble_loss, reward_loss)
 
+        recorder = None
+        if args.record_every is not None and args.record_every % episode == 0:
+            filename = logger.get_video_path(episode)
+            recorder = VideoRecorder(env.unwrapped, path=filename)
+            logger.log("Setup recoder @ {}".format(filename))
+
         logger.log("\n=== Collecting data [{}] ===".format(episode))
-        reward, steps, stats = agent.run_episode(buffer, action_noise=args.action_noise)
+        reward, steps, stats = agent.run_episode(
+            buffer, action_noise=args.action_noise, recorder=recorder
+        )
         logger.log_episode(reward, steps)
         logger.log_stats(stats)
 

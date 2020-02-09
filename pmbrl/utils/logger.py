@@ -31,6 +31,11 @@ class Logger(object):
         msg = "Ensemble loss {:.2f} / Reward Loss {:.2f}"
         self.log(msg.format(e_loss, r_loss))
 
+    def log_coverage(self, coverage):
+        self.metrics["coverage"].append(coverage)
+        msg = "Coverage {:.2f}"
+        self.log(msg.format(coverage))
+
     def log_episode(self, reward, steps):
         self.metrics["rewards"].append(reward)
         self.metrics["steps"].append(steps)
@@ -75,6 +80,7 @@ class Logger(object):
             "times": [],
             "reward_stats": [],
             "info_stats": [],
+            "coverage": [],
         }
 
     def _save_json(self, path, obj):

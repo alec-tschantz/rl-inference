@@ -13,6 +13,7 @@ from gym.wrappers.monitoring.video_recorder import VideoRecorder
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from pmbrl.envs import GymEnv
+from pmbrl.envs.envs.ant import rate_buffer 
 from pmbrl.training import Normalizer, Buffer, Trainer
 from pmbrl.models import EnsembleModel, RewardModel
 from pmbrl.control import Planner, Agent
@@ -82,6 +83,7 @@ def main(args):
         use_mean=args.use_mean,
         expl_scale=args.expl_scale,
         reward_scale=args.reward_scale,
+        strategy=args.strategy,
         device=DEVICE,
     )
     agent = Agent(env, planner, logger=logger)
@@ -115,14 +117,20 @@ def main(args):
         logger.log_episode(reward, steps)
         logger.log_stats(stats)
 
+        if args.coverage:
+            coverage = rate_buffer(buffer=buffer)
+            logger.log_coverage(coverage)
+
         logger.log_time(time.time() - start_time)
         logger.save()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--logdir", type=str)
     parser.add_argument("--config_name", type=str)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--strategy", type=str, default="information")
     args = parser.parse_args()
     config = utils.get_config(args)
     main(config)

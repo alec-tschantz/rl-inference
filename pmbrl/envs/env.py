@@ -4,7 +4,8 @@ import roboschool
 SPARSE_MOUNTAIN_CAR = "SparseMountainCar"
 HALF_CHEETAH_RUN = "HalfCheetahRun"
 HALF_CHEETAH_FLIP = "HalfCheetahFlip"
-LUNAR_LANDER = "LunarLander"
+ANT_MAZE = "AntMaze"
+REACHER = "SparseReacher"
 DM_CATCH = "DeepMindCatch"
 
 
@@ -73,14 +74,19 @@ class GymEnv(object):
 
             return HalfCheetahFlipEnv()
 
-        elif env_name == LUNAR_LANDER:
-            from pmbrl.envs.envs.lunar_lander import LunarLander
+        elif env_name == ANT_MAZE:
+            from pmbrl.envs.envs.ant import SparseAntEnv
 
-            return LunarLander()
+            return SparseAntEnv()
 
         elif env_name == DM_CATCH:
             from pmbrl.envs.dm_wrapper import DeepMindWrapper
 
             return DeepMindWrapper(domain="ball_in_cup", task="catch")
+
+        elif env_name == REACHER:
+            from pmbrl.envs.dm_wrapper import DeepMindWrapper
+
+            return DeepMindWrapper(domain="reacher", task="easy")
         else:
             return gym.make(env_name)

@@ -2,6 +2,8 @@
 
 Repository for `ICML` 2020 submission
 
+- Disagreement works well
+
 ### Requirements
 
 - `torch`
@@ -19,8 +21,4 @@ Repository for `ICML` 2020 submission
 - `CupCatch`: run using the `train` script with the `cup_catch` config
 - `HalfCheetahRun`: run using the `train` script with the `half_cheetah_run` config
 - `HalfCheetahFlip`: run using the `train` script with the `half_cheetah_flip` config
-
-### Tasks
-
-- Setup action noise exploration and no exploration configs
-- Can we do exploration + exploitation vs. exploration vs. exploitation in train phases? 
+- `AntMaze`: run using the `train` script with the `ant_maze` config

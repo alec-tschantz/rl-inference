@@ -13,36 +13,36 @@ def get_state_block(state):
     y = state[3].item()
 
     if -1 < x < 1:
-        x_block = 'low'
+        x_block = "low"
     elif 1 < x < 3:
-        x_block = 'mid'
+        x_block = "mid"
     elif 3 < x < 5:
-        x_block = 'high'
+        x_block = "high"
     else:
         raise Exception
 
     if -1 < y < 1:
-        y_block = 'left'
+        y_block = "left"
     elif 1 < y < 3:
-        y_block = 'center'
+        y_block = "center"
     elif 3 < y < 5:
-        y_block = 'right'
+        y_block = "right"
     else:
         raise Exception
 
-    if x_block == 'low' and y_block == 'left':
+    if x_block == "low" and y_block == "left":
         return 0
-    elif x_block == 'low' and y_block == 'center':
+    elif x_block == "low" and y_block == "center":
         return 1
-    elif x_block == 'low' and y_block == 'right':
+    elif x_block == "low" and y_block == "right":
         return 2
-    elif x_block == 'mid' and y_block == 'right':
+    elif x_block == "mid" and y_block == "right":
         return 3
-    elif x_block == 'high' and y_block == 'right':
+    elif x_block == "high" and y_block == "right":
         return 4
-    elif x_block == 'high' and y_block == 'center':
+    elif x_block == "high" and y_block == "center":
         return 5
-    elif x_block == 'high' and y_block == 'left':
+    elif x_block == "high" and y_block == "left":
         return 6
 
 
@@ -61,9 +61,10 @@ class SparseAntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         - 14 joint velocities
         - (optionally, commented for now) 84 contact forces
     """
+
     def __init__(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        mujoco_env.MujocoEnv.__init__(self, '%s/assets/ant_maze.xml' % dir_path, 5)
+        mujoco_env.MujocoEnv.__init__(self, "%s/assets/ant_maze.xml" % dir_path, 5)
         utils.EzPickle.__init__(self)
 
     @property
@@ -92,7 +93,9 @@ class SparseAntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         return np.concatenate((x_velocity, y_velocity, position, velocities))
 
     def reset_model(self):
-        qpos = self.init_qpos + self.np_random.uniform(size=self.model.nq, low=-0.1, high=0.1)
+        qpos = self.init_qpos + self.np_random.uniform(
+            size=self.model.nq, low=-0.1, high=0.1
+        )
         qvel = self.init_qvel + self.np_random.randn(self.model.nv) * 0.1
         self.set_state(qpos, qvel)
         self.prev_x_torso = np.copy(self.get_body_com("torso")[0:1])
@@ -103,7 +106,9 @@ class SparseAntEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.viewer.cam.type = const.CAMERA_TRACKING
         self.viewer.cam.trackbodyid = 0
         self.viewer.cam.distance = self.model.stat.extent
-        self.viewer.cam.lookat[0] += 1  # x,y,z offset from the object (works if trackbodyid=-1)
+        self.viewer.cam.lookat[
+            0
+        ] += 1  # x,y,z offset from the object (works if trackbodyid=-1)
         self.viewer.cam.lookat[1] += 1
         self.viewer.cam.lookat[2] += 1
         self.viewer.cam.elevation = -85

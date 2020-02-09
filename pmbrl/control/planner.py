@@ -44,20 +44,18 @@ class Planner(nn.Module):
         self.reward_scale = reward_scale
         self.device = device
 
-    
         if strategy == "information":
-             self.measure = InformationGain(self.ensemble, scale=expl_scale)
+            self.measure = InformationGain(self.ensemble, scale=expl_scale)
         elif strategy == "variance":
             self.measure = Variance(self.ensemble, scale=expl_scale)
         elif strategy == "random":
             self.measure = Random(self.ensemble, scale=expl_scale)
         elif strategy == "none":
             self.use_exploration = False
-        
+
         self.trial_rewards = []
         self.trial_bonuses = []
         self.to(device)
-        
 
     def forward(self, state):
 

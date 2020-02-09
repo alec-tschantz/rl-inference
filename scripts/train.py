@@ -13,7 +13,7 @@ from gym.wrappers.monitoring.video_recorder import VideoRecorder
 sys.path.append(str(pathlib.Path(__file__).parent.parent))
 
 from pmbrl.envs import GymEnv
-from pmbrl.envs.envs.ant import rate_buffer 
+from pmbrl.envs.envs.ant import rate_buffer
 from pmbrl.training import Normalizer, Buffer, Trainer
 from pmbrl.models import EnsembleModel, RewardModel
 from pmbrl.control import Planner, Agent

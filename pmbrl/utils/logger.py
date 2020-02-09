@@ -8,7 +8,7 @@ class Logger(object):
     def __init__(self, logdir, seed):
         self.logdir = logdir
         self.seed = seed
-        self.path = logdir + "_" + str(seed) + "/"
+        self.path = "log_" + logdir + "_" + str(seed) + "/"
         self.print_path = self.path + "out.txt"
         self.metrics_path = self.path + "metrics.json"
         self.video_dir = self.path + "videos/"

@@ -1,4 +1,4 @@
-# Exploration from exploitation
+# Reinforcement Learning through Active Inference
 
 Repository for `ICLR` 2020 submission
 

@@ -1,5 +1,7 @@
 # Reinforcement Learning through Active Inference
 
+![status](https://img.shields.io/badge/status-development-orange) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+
 Repository for `ICLR` 2020 submission
 
 ### Requirements

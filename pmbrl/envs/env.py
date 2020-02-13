@@ -5,7 +5,7 @@ SPARSE_MOUNTAIN_CAR = "SparseMountainCar"
 HALF_CHEETAH_RUN = "HalfCheetahRun"
 HALF_CHEETAH_FLIP = "HalfCheetahFlip"
 ANT_MAZE = "AntMaze"
-REACHER = "SparseReacher"
+DM_REACHER = "DeepMindReacher"
 DM_CATCH = "DeepMindCatch"
 
 
@@ -84,7 +84,7 @@ class GymEnv(object):
 
             return DeepMindWrapper(domain="ball_in_cup", task="catch")
 
-        elif env_name == REACHER:
+        elif env_name == DM_REACHER:
             from pmbrl.envs.dm_wrapper import DeepMindWrapper
 
             return DeepMindWrapper(domain="reacher", task="easy")

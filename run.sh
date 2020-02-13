@@ -1,7 +1,9 @@
-###############################################################################################
-#                                         Cup Catch
-#                          @TODO SAC baseline, e-greedy exploration
-###############################################################################################
+# full exploration
+python scripts/train.py --config_name="cup_catch" --logdir="cup_catch" --seed=0
+python scripts/train.py --config_name="cup_catch" --logdir="cup_catch" --seed=1
+python scripts/train.py --config_name="cup_catch" --logdir="cup_catch" --seed=2
+python scripts/train.py --config_name="cup_catch" --logdir="cup_catch" --seed=3
+python scripts/train.py --config_name="cup_catch" --logdir="cup_catch" --seed=4
 
 # no exploration
 python scripts/train.py --config_name="cup_catch" --logdir="cup_catch_no_expl" --strategy="none" --seed=0
@@ -74,8 +76,9 @@ python scripts/train.py --config_name="mountain_car" --logdir="mountain_car_vari
 
 
 ###############################################################################################
+#
 #                                         Reacher
-#                           @TODO SAC baseline, e-greedy exploration
+#                        
 ###############################################################################################
 
 # full exploration

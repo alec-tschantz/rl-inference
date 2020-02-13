@@ -18,7 +18,6 @@ class Random(object):
         """
 
         n_candidates = delta_means.size(2)
-
         randoms = torch.randn(n_candidates).float().to(delta_means.device)
 
         return randoms

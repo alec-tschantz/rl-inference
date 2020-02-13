@@ -26,7 +26,7 @@ def get_config(args):
         config = DebugConfig()
     else:
         raise ValueError("`{}` is not a valid config ID".format(args.config_name))
-    
+
     config.set_logdir(args.logdir)
     config.set_seed(args.seed)
     config.set_strategy(args.strategy)
@@ -71,7 +71,7 @@ class Config(object):
 
     def set_logdir(self, logdir):
         self.logdir = logdir
-    
+
     def set_seed(self, seed):
         self.seed = seed
 
@@ -100,7 +100,7 @@ class MountainCarConfig(Config):
         self.max_episode_len = 500
         self.n_train_epochs = 100
         self.n_seed_episodes = 1
-        self.expl_scale = 1. 
+        self.expl_scale = 1.0
         self.n_episodes = 30
         self.ensemble_size = 25
         self.record_every = None
@@ -197,14 +197,14 @@ class AntMazeConfig(Config):
         self.use_exploration = True
         self.use_reward = False
         self.use_mean = True
-        self.expl_scale = 1.
+        self.expl_scale = 1.0
 
 
 class ReacherConfig(Config):
     def __init__(self):
         super().__init__()
         self.logdir = "reacher"
-        self.env_name = "SparseReacher"
+        self.env_name = "DeepMindReacher"
         self.n_episodes = 100
         self.n_seed_episodes = 5
         self.max_episode_len = 1000
@@ -214,7 +214,7 @@ class ReacherConfig(Config):
         self.hidden_size = 400
 
         self.n_train_epochs = 100
-        self.batch_size = 50   
+        self.batch_size = 50
 
         self.plan_horizon = 30
         self.optimisation_iters = 5

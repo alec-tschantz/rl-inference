@@ -1,8 +1,6 @@
 # Exploration from exploitation
 
-Repository for `ICML` 2020 submission
-
-- Disagreement works well
+Repository for `ICLR` 2020 submission
 
 ### Requirements
 
@@ -22,3 +20,4 @@ Repository for `ICML` 2020 submission
 - `HalfCheetahRun`: run using the `train` script with the `half_cheetah_run` config
 - `HalfCheetahFlip`: run using the `train` script with the `half_cheetah_flip` config
 - `AntMaze`: run using the `train` script with the `ant_maze` config
+- `Reacher`: run using the `train` script with the `reacher` config

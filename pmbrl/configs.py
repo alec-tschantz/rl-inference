@@ -5,9 +5,11 @@ CUP_CATCH_CONFIG = "cup_catch"
 HALF_CHEETAH_RUN_CONFIG = "half_cheetah_run"
 HALF_CHEETAH_FLIP_CONFIG = "half_cheetah_flip"
 REACHER_CONFIG = "reacher"
-AMT_MAZE = "ant_maze"
+ANT_MAZE = "ant_maze"
 DEBUG_CONFIG = "debug"
 
+def print_configs():
+    print(f"[{MOUNTAIN_CAR_CONFIG}, {CUP_CATCH_CONFIG}, {HALF_CHEETAH_RUN_CONFIG}, {HALF_CHEETAH_FLIP_CONFIG}, {REACHER_CONFIG}, {ANT_MAZE}, {DEBUG_CONFIG} ")
 
 def get_config(args):
     if args.config_name == MOUNTAIN_CAR_CONFIG:
@@ -20,7 +22,7 @@ def get_config(args):
         config = HalfCheetahFlipConfig()
     elif args.config_name == REACHER_CONFIG:
         config = ReacherConfig()
-    elif args.config_name == AMT_MAZE:
+    elif args.config_name == ANT_MAZE:
         config = AntMazeConfig()
     elif args.config_name == DEBUG_CONFIG:
         config = DebugConfig()

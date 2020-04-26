@@ -17,13 +17,14 @@ from pmbrl.envs.envs.ant import rate_buffer
 from pmbrl.training import Normalizer, Buffer, Trainer
 from pmbrl.models import EnsembleModel, RewardModel
 from pmbrl.control import Planner, Agent
-from pmbrl import utils
+from pmbrl.utils import Logger
+from pmbrl import get_config
 
 DEVICE = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 
 def main(args):
-    logger = utils.Logger(args.logdir, args.seed)
+    logger = Logger(args.logdir, args.seed)
     logger.log("\n=== Loading experiment [device: {}] ===\n".format(DEVICE))
     logger.log(args)
 
@@ -33,18 +34,13 @@ def main(args):
         torch.cuda.manual_seed(args.seed)
 
     env = GymEnv(
-        args.env_name,
-        args.max_episode_len,
-        action_repeat=args.action_repeat,
-        seed=args.seed,
+        args.env_name, args.max_episode_len, action_repeat=args.action_repeat, seed=args.seed
     )
     action_size = env.action_space.shape[0]
     state_size = env.observation_space.shape[0]
 
     normalizer = Normalizer()
-    buffer = Buffer(
-        state_size, action_size, args.ensemble_size, normalizer, device=DEVICE
-    )
+    buffer = Buffer(state_size, action_size, args.ensemble_size, normalizer, device=DEVICE)
 
     ensemble = EnsembleModel(
         state_size + action_size,
@@ -54,9 +50,7 @@ def main(args):
         normalizer,
         device=DEVICE,
     )
-    reward_model = RewardModel(
-        state_size + action_size, args.hidden_size, device=DEVICE
-    )
+    reward_model = RewardModel(state_size + action_size, args.hidden_size, device=DEVICE)
     trainer = Trainer(
         ensemble,
         reward_model,
@@ -97,9 +91,7 @@ def main(args):
         start_time = time.time()
 
         msg = "Training on [{}/{}] data points"
-        logger.log(
-            msg.format(buffer.total_steps, buffer.total_steps * args.action_repeat)
-        )
+        logger.log(msg.format(buffer.total_steps, buffer.total_steps * args.action_repeat))
         trainer.reset_models()
         ensemble_loss, reward_loss = trainer.train()
         logger.log_losses(ensemble_loss, reward_loss)
@@ -127,10 +119,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--logdir", type=str)
-    parser.add_argument("--config_name", type=str)
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--logdir", type=str, default="log")
+    parser.add_argument("--config_name", type=str, default="mountain_car")
     parser.add_argument("--strategy", type=str, default="information")
+    parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
-    config = utils.get_config(args)
+    config = get_config(args)
     main(config)

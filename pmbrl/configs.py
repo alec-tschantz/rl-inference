@@ -46,7 +46,7 @@ class Config(object):
 
         self.env_name = None
         self.max_episode_len = 500
-        self.action_repeat = 1
+        self.action_repeat = 3
         self.action_noise = None
 
         self.ensemble_size = 10

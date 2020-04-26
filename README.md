@@ -1,4 +1,4 @@
-## Reinforcement Learning through Active Inference
+# Reinforcement Learning through Active Inference
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 

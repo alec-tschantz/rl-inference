@@ -1,5 +1,4 @@
 import gym
-import roboschool
 
 SPARSE_MOUNTAIN_CAR = "SparseMountainCar"
 HALF_CHEETAH_RUN = "HalfCheetahRun"

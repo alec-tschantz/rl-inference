@@ -35,4 +35,4 @@ The provided configs are [`mountain_car`, `cup_catch`, `half_cheetah_run`,  `hal
 - Alec Tschantz [@alec-tschantz](https://github.com/alec-tschantz)
 - Beren Millidge [@bmillidge](https://github.com/BerenMillidge)
 
-The code for the ensemble model was adapted from [max](`https://github.com/nnaisense/max`)
+The code for the ensemble model was adapted from the [max](https://github.com/nnaisense/max) repo

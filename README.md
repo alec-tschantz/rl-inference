@@ -1,8 +1,8 @@
-# Reinforcement Learning through Active Inference
+## Reinforcement Learning through Active Inference
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 
-Repository for ICLR 2020 submission to Bridging AI and Cognitive Science (BAICS). 
+Repository for ICLR 2020 submission to Bridging AI and Cognitive Science (BAICS)
 
 [[Paper](https://arxiv.org/abs/2002.12636) / [Presentation](https://baicsworkshop.github.io/program/baics_37.html)]
 
@@ -28,7 +28,7 @@ cd rl-inference
 python scripts/train.py --config_name="mountain_car" --logdir="mountain_car" --strategy="information" --seed=0
 ```
 
-The provided configs are [`mountain_car`, `cup_catch`, `half_cheetah_run`,  `half_cheetah_flip` `ant_maze`, `reacher`p
+The provided configs are [`mountain_car`, `cup_catch`, `half_cheetah_run`,  `half_cheetah_flip` `ant_maze`, `reacher`]
 
 ### Acknowledgments
 
